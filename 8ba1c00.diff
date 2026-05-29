@@ -1,0 +1,1318 @@
+From 8ba1c008debf17a77a5d9409dee79fc85ff68ae0 Mon Sep 17 00:00:00 2001
+From: dehuang.wu <dehuang.wu@artinchip.com>
+Date: Thu, 08 Jan 2026 17:51:43 +0800
+Subject: [PATCH] fatfs: directory entry cache feature for rodata
+
+1. For rodata with fatfs, cache last 90 (LRU) directory entry's sectors in RAM
+2. Memory: limit 50KB max usage
+3. Speed:
+   - Open/Close all 700 files in directory, from 3277.464 ms reduce to 123.294 ms(3.76%)
+   - Open/Close all 700 files in directory, Access Flash from 22240 reduce to 54 max
+
+Change-Id: I34cef8d7e04af24fb1b3de844d0f978e1f1f1d30
+---
+
+diff --git a/application/Kconfig b/application/Kconfig
+index 9386985..d1b1705 100644
+--- a/application/Kconfig
++++ b/application/Kconfig
+@@ -187,6 +187,9 @@
+     config AIC_USING_FS_IMAGE_TYPE_FATFS_CLUSTER_SIZE
+         int "size of cluster in fatfs image"
+         default 8
++    config AIC_USING_DIRENT_CACHE_FOR_READ_ONLY_FATFS
++        bool "enable directory entry cache for read only fatfs"
++        default y
+ endif
+ 
+ config GENERATE_BURNER_IMAGE
+diff --git a/kernel/rt-thread/components/dfs/filesystems/elmfat/dfs_elm.c b/kernel/rt-thread/components/dfs/filesystems/elmfat/dfs_elm.c
+index d17a1db..ea6dc57 100644
+--- a/kernel/rt-thread/components/dfs/filesystems/elmfat/dfs_elm.c
++++ b/kernel/rt-thread/components/dfs/filesystems/elmfat/dfs_elm.c
+@@ -29,8 +29,13 @@
+ #include <dfs_fs.h>
+ #include <dfs_file.h>
+ #include <dfs_elm.h>
++#include "dirents_cache.h"
++#include "diskio.h"
+ 
+ static rt_device_t disk[FF_VOLUMES] = {0};
++#ifdef AIC_USING_DIRENT_CACHE_FOR_READ_ONLY_FATFS
++static dirent_cache_t disk_cache[FF_VOLUMES] = {0};
++#endif
+ 
+ static int elm_result_to_dfs(FRESULT result)
+ {
+@@ -96,6 +101,42 @@
+     return -1;
+ }
+ 
++#ifdef AIC_USING_DIRENT_CACHE_FOR_READ_ONLY_FATFS
++static dirent_cache_t dfs_elm_dirent_cache_init(int drv, unsigned int sector_size)
++{
++    unsigned int start_sect, bytelen;
++    unsigned int *sect_id_list = NULL;
++    dirent_cache_t cache = NULL;
++    unsigned char *buff = NULL;
++    int ret = 0;
++    UINT sect_cnt;
++
++    buff = (void *)rt_malloc(512);
++    if ((buff != NULL) && disk_read(drv, buff, 0, 1) == RES_OK) {
++        /* Read cache sector info from file system */
++        ret = f_dirent_cache_get_sector_info(buff, &start_sect, &bytelen);
++        if (buff) {
++            rt_free(buff);
++            buff = NULL;
++        }
++        if (ret == 0) {
++            sect_cnt = (bytelen + sector_size - 1) / sector_size;
++            sect_id_list = (unsigned int *)rt_malloc(sect_cnt * sector_size);
++            if (disk_read(drv, (BYTE *)sect_id_list, start_sect, sect_cnt) == RES_OK)
++                cache = f_dirent_cache_init(sect_id_list, bytelen / 4, sector_size);
++            if (sect_id_list)
++                rt_free(sect_id_list);
++        }
++        if (cache)
++            return cache;
++    }
++    /* Error, no cache */
++    if (buff)
++        rt_free(buff);
++    return NULL;
++}
++#endif
++
+ int dfs_elm_mount(struct dfs_filesystem *fs, unsigned long rwflag, const void *data)
+ {
+     FATFS *fat;
+@@ -126,6 +167,9 @@
+     if (fat == RT_NULL)
+     {
+         disk[index] = RT_NULL;
++#ifdef AIC_USING_DIRENT_CACHE_FOR_READ_ONLY_FATFS
++        disk_cache[index] = RT_NULL;
++#endif
+         return -ENOMEM;
+     }
+ 
+@@ -142,6 +186,9 @@
+         {
+             f_mount(RT_NULL, (const TCHAR *)logic_nbr, 1);
+             disk[index] = RT_NULL;
++#ifdef AIC_USING_DIRENT_CACHE_FOR_READ_ONLY_FATFS
++            disk_cache[index] = RT_NULL;
++#endif
+             rt_free_align(fat);
+             return -ENOMEM;
+         }
+@@ -152,6 +199,16 @@
+         if (result != FR_OK)
+             goto __err;
+ 
++#ifdef AIC_USING_DIRENT_CACHE_FOR_READ_ONLY_FATFS
++        if (rwflag & MS_RDONLY) {
++            unsigned int sector_size = 512;
++
++#if FF_MAX_SS != FF_MIN_SS
++            sector_size = fat->ssize;
++#endif
++            disk_cache[index] = dfs_elm_dirent_cache_init(index, sector_size);
++        }
++#endif
+         /* mount succeed! */
+         fs->data = fat;
+         return 0;
+@@ -160,6 +217,9 @@
+ __err:
+     f_mount(RT_NULL, (const TCHAR *)logic_nbr, 1);
+     disk[index] = RT_NULL;
++#ifdef AIC_USING_DIRENT_CACHE_FOR_READ_ONLY_FATFS
++    disk_cache[index] = RT_NULL;
++#endif
+     rt_free_align(fat);
+     return elm_result_to_dfs(result);
+ }
+@@ -187,6 +247,10 @@
+ 
+     fs->data = RT_NULL;
+     disk[index] = RT_NULL;
++#ifdef AIC_USING_DIRENT_CACHE_FOR_READ_ONLY_FATFS
++    f_dirent_cache_free(disk_cache[index]);
++    disk_cache[index] = RT_NULL;
++#endif
+     rt_free_align(fat);
+ 
+     return RT_EOK;
+@@ -881,9 +945,23 @@
+     rt_size_t result;
+     rt_device_t device = disk[drv];
+ 
++#ifdef AIC_USING_DIRENT_CACHE_FOR_READ_ONLY_FATFS
++    int ret = DIRENT_DATA_NOT_FOUND;
++    if (disk_cache[drv]) {
++        ret = f_dirent_cache_read(disk_cache[drv], sector, buff, count);
++        if (ret == count) {
++            return RES_OK;
++        }
++    }
++#endif
+     result = rt_device_read(device, sector, buff, count);
+     if (result == count)
+     {
++#ifdef AIC_USING_DIRENT_CACHE_FOR_READ_ONLY_FATFS
++        if (disk_cache[drv] && ret == DIRENT_DATA_MISSED) {
++            f_dirent_cache_set(disk_cache[drv], sector, buff, count);
++        }
++#endif
+         return RES_OK;
+     }
+ 
+diff --git a/kernel/rt-thread/components/dfs/filesystems/elmfat/dirents_cache.c b/kernel/rt-thread/components/dfs/filesystems/elmfat/dirents_cache.c
+new file mode 100644
+index 0000000..72ff650
+--- /dev/null
++++ b/kernel/rt-thread/components/dfs/filesystems/elmfat/dirents_cache.c
+@@ -0,0 +1,452 @@
++/*
++ * Copyright (c) 2026, ArtInChip Technology Co., Ltd
++ *
++ * SPDX-License-Identifier: Apache-2.0
++ */
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++#include <aic_log.h>
++
++#include "ff.h"
++#include "dirents_cache.h"
++
++/** @brief Maximum number of cached directory entry sectors */
++#define MAX_CACHE_DIRENT_COUNT 90
++#define DIRENT_CACHE_DEBUG
++
++#define AIC_FAT_HEAD_MAGIC 0x46434941
++struct aicfat_head_info {
++    uint32_t magic;
++    uint32_t cksum32;
++    uint32_t length;
++    uint32_t version;
++    uint64_t image_size;
++    uint64_t used_size;
++    uint32_t dirent_sect_id;  /* Sector id */
++    uint32_t dirent_data_len; /* Byte len */
++};
++
++struct dirent_cache_node {
++    unsigned char *data;      /**< Sector data buffer */
++    unsigned int index;
++    struct dirent_cache_node *lru_prev;
++    struct dirent_cache_node *lru_next;
++#ifdef DIRENT_CACHE_DEBUG
++    unsigned int cur_cache_reuse_cnt;
++    unsigned int cache_buff_read_cnt;
++    unsigned int disk_read_cnt;
++#endif
++};
++
++/**
++ * @brief Information about a cached directory entry sector
++ */
++struct dirent_sector_info {
++    struct dirent_cache_node *node;
++    unsigned int sect_id;     /**< Sector ID */
++};
++
++/**
++ * @brief Private structure to manage directory entry cache sectors
++ */
++struct dirent_cache_priv {
++    struct dirent_sector_info *sectors; /**< Array of cached sectors */
++    struct dirent_cache_node *lru_head;
++    struct dirent_cache_node *lru_tail;
++    unsigned int id_count;                 /**< Number of valid entries in the array */
++    unsigned int lru_count;
++    unsigned int sector_size;           /**< Size of each sector in bytes */
++};
++
++/**
++ * @brief Binary search for a sector ID within the sorted sector list
++ *
++ * This function performs a recursive binary search on the sector list to find
++ * the index of the specified sector ID.
++ *
++ * @param[in] cache     Pointer to the private cache structure
++ * @param[in] left      Left boundary of the current search range
++ * @param[in] right     Right boundary of the current search range
++ * @param[in] sect_id   Target sector ID to search for
++ *
++ * @return Index of the sector if found, otherwise -1
++ */
++static int dirent_sector_binary_search(struct dirent_cache_priv *cache, unsigned int left,
++                                       unsigned int right, unsigned int sect_id)
++{
++    unsigned int mid;
++
++    if (left > right)
++        return -1;
++
++    mid = left + (right - left) / 2;
++    if (cache->sectors[mid].sect_id == sect_id)
++        return (int)mid;
++
++    if (cache->sectors[mid].sect_id < sect_id) {
++        return dirent_sector_binary_search(cache, mid + 1, right, sect_id);
++    } else {
++        if (mid == 0)
++            return -1;
++        return dirent_sector_binary_search(cache, left, mid - 1, sect_id);
++    }
++    return -1;
++}
++
++#ifdef DIRENT_CACHE_DEBUG
++struct dirent_cache_priv *g_dbg_dirent_cache = NULL;
++void f_dirent_cache_set_debug_info(struct dirent_cache_priv *priv)
++{
++    g_dbg_dirent_cache = priv;
++}
++
++void f_dirent_cache_show_debug_info(void)
++{
++    if (g_dbg_dirent_cache == NULL)
++        return;
++    printf("cache sector count: %d\n", g_dbg_dirent_cache->lru_count);
++    struct dirent_cache_node *node = g_dbg_dirent_cache->lru_head;
++    while (node) {
++        printf(
++            "index %d: cur sect id %d, disk read cnt %d, cur cache used %d, buff total used %d\n",
++            node->index, g_dbg_dirent_cache->sectors[node->index].sect_id, node->disk_read_cnt,
++            node->cur_cache_reuse_cnt, node->cache_buff_read_cnt);
++        node = node->lru_next;
++    }
++}
++#endif
++
++dirent_cache_t f_dirent_cache_init(unsigned int *id_list, unsigned int id_cnt,
++                                   unsigned int sector_size)
++{
++    struct dirent_cache_priv *priv = NULL;
++    unsigned int slist_len;
++
++    priv = malloc(sizeof(struct dirent_cache_priv));
++    if (!priv)
++        return NULL;
++    memset(priv, 0, sizeof(struct dirent_cache_priv));
++
++    slist_len = id_cnt * sizeof(struct dirent_sector_info);
++    priv->sectors = malloc(slist_len);
++    if (!priv->sectors) {
++        free(priv);
++        return NULL;
++    }
++    memset(priv->sectors, 0, slist_len);
++    priv->sector_size = sector_size;
++    for (int i = 0; i < id_cnt; i++) {
++        priv->sectors[i].sect_id = id_list[i];
++    }
++    priv->id_count = id_cnt;
++
++#ifdef DIRENT_CACHE_DEBUG
++    f_dirent_cache_set_debug_info(priv);
++#endif
++    return priv;
++}
++
++/**
++ * @brief Free the directory entry cache handle
++ *
++ * This function releases all memory allocated for the cache including individual sector buffers.
++ * Typically called during filesystem unmounting.
++ *
++ * @param[in] cache Handle to the directory entry cache to be freed
++ */
++void f_dirent_cache_free(dirent_cache_t cache)
++{
++    struct dirent_cache_priv *priv = (struct dirent_cache_priv *)cache;
++    struct dirent_cache_node *dnode;
++
++    if (priv == NULL)
++        return;
++
++    for (int i = 0; i < priv->id_count && priv->sectors != NULL; i++) {
++        dnode = priv->sectors[i].node;
++        if (dnode) {
++            if (dnode->data)
++                free(dnode->data);
++            free(dnode);
++            priv->sectors[i].node = NULL;
++        }
++    }
++    priv->lru_head = NULL;
++    priv->lru_tail = NULL;
++    priv->lru_count = 0;
++    if (priv->sectors) {
++        free(priv->sectors);
++        priv->sectors = NULL;
++    }
++    free(priv);
++}
++
++struct dirent_cache_node *dirent_lru_node_get_oldest(struct dirent_cache_priv *priv)
++{
++    if (priv->lru_count < MAX_CACHE_DIRENT_COUNT) {
++        struct dirent_cache_node *dnode;
++        /* Not reach the limitation, return new node. */
++        dnode = (void *)malloc(sizeof(struct dirent_cache_node));
++        memset(dnode, 0, sizeof(struct dirent_cache_node));
++        dnode->data = (void *)malloc(priv->sector_size);
++        dnode->lru_prev = NULL;
++        dnode->lru_next = NULL;
++        priv->lru_count++;
++        return dnode;
++    } else {
++        /* Pop the tail node */
++        struct dirent_cache_node *oldest, *prev;
++        oldest = priv->lru_tail;
++        if (!oldest) {
++            pr_err("error, tail is null\n");
++            return NULL;
++        }
++        prev = oldest->lru_prev;
++        if (prev == NULL) {
++            pr_err("error, tail prev is null\n");
++            return NULL;
++        }
++        priv->lru_tail = prev;
++        prev->lru_next = NULL;
++        oldest->lru_prev = NULL;
++        oldest->lru_next = NULL;
++        priv->sectors[oldest->index].node = NULL;
++        return oldest;
++    }
++
++    return NULL;
++}
++
++void dirent_lru_node_set_data(struct dirent_cache_priv *priv, struct dirent_cache_node *dnode,
++                              unsigned char *buff, int index)
++{
++    memcpy(dnode->data, buff, priv->sector_size);
++    dnode->index = index;
++    priv->sectors[index].node = dnode;
++    dnode->disk_read_cnt++;
++    dnode->cur_cache_reuse_cnt = 0;
++}
++
++void dirent_lru_node_get_data(struct dirent_cache_priv *priv, struct dirent_cache_node *dnode,
++                              unsigned char *buff)
++{
++    memcpy(buff, dnode->data, priv->sector_size);
++    dnode->cur_cache_reuse_cnt++;
++    dnode->cache_buff_read_cnt++;
++}
++
++int dirent_lru_node_set_latest(struct dirent_cache_priv *priv, struct dirent_cache_node *dnode)
++{
++    if (dnode->lru_prev) {
++        pr_err("prev is not null\n");
++    }
++    if (dnode->lru_next) {
++        pr_err("next is not null\n");
++    }
++
++    if (priv->lru_head == NULL) {
++        /* First node */
++        dnode->lru_prev = NULL;
++        dnode->lru_next = NULL;
++        priv->lru_head = dnode;
++        priv->lru_tail = dnode;
++    } else {
++        dnode->lru_prev = NULL;
++        dnode->lru_next = priv->lru_head;
++        priv->lru_head->lru_prev = dnode;
++        priv->lru_head = dnode;
++    }
++    return 0;
++}
++
++int dirent_lru_node_move_to_latest(struct dirent_cache_priv *priv, struct dirent_cache_node *dnode)
++{
++    struct dirent_cache_node *prev, *next;
++
++    if (priv->lru_head == dnode)
++        return 0;
++
++    if (priv->lru_head == NULL) {
++        pr_err("lru head is null\n");
++    }
++
++    prev = dnode->lru_prev;
++    next = dnode->lru_next;
++    if (prev == NULL) {
++        pr_err("dnode prev is null\n");
++    }
++    prev->lru_next = next;
++    if (next) {
++        next->lru_prev = prev;
++    }
++
++    dnode->lru_prev = NULL;
++    dnode->lru_next = priv->lru_head;
++    priv->lru_head->lru_prev = dnode;
++    priv->lru_head = dnode;
++    if (dnode == priv->lru_tail) {
++        priv->lru_tail = prev;
++    }
++    return 0;
++}
++
++/**
++ * @brief Read data from the directory entry cache
++ *
++ * Checks if the requested sector has been cached. If so, returns the cached data.
++ * Otherwise, indicates that the data needs to be loaded from storage.
++ *
++ * @param[in]  cache    Directory entry cache handle
++ * @param[in]  sector   Logical block address of the sector to read
++ * @param[out] buff     Buffer to copy the sector data into
++ * @param[in]  count    Number of sectors to read (must be 1 currently)
++ *
++ * @return Positive value indicating number of sectors read if successful,
++ *         DIRENT_DATA_MISSED if some data is missing,
++ *         DIRENT_DATA_NOT_FOUND if the sector is not tracked,
++ *         DIRENT_DATA_ERROR if an invalid parameter was passed
++ */
++int f_dirent_cache_read(dirent_cache_t cache, unsigned long sector, unsigned char *buff,
++                        unsigned long count)
++{
++    struct dirent_cache_priv *priv = (struct dirent_cache_priv *)cache;
++    int start = 0;
++
++    if (priv == NULL)
++        return DIRENT_DATA_ERROR;
++
++    if (count > 1) {
++        /* Referencing elmfat behavior: only one sector can be read per call */
++        return DIRENT_DATA_NOT_FOUND;
++    }
++    if (priv->id_count == 0)
++        return DIRENT_DATA_NOT_FOUND;
++
++    start = dirent_sector_binary_search(priv, 0, priv->id_count - 1, (unsigned int)sector);
++
++    if (start < 0)
++        return DIRENT_DATA_NOT_FOUND;
++
++    struct dirent_cache_node *dnode = priv->sectors[start].node;
++
++    if (dnode == NULL) {
++        return DIRENT_DATA_MISSED;
++    }
++    dirent_lru_node_get_data(priv, dnode, buff);
++    dirent_lru_node_move_to_latest(priv, dnode);
++    return count;
++}
++
++/**
++ * @brief Set/copy sector data into the directory entry cache
++ *
++ * Stores the provided sector data into the corresponding slot in the cache.
++ *
++ * @param[in] cache     Directory entry cache handle
++ * @param[in] sector    Logical block address of the sector being set
++ * @param[in] buff      Buffer containing the sector data
++ * @param[in] count     Number of sectors to set (must be 1 currently)
++ *
++ * @return Count of successfully set sectors, or -1 on error
++ */
++int f_dirent_cache_set(dirent_cache_t cache, unsigned long sector, unsigned char *buff,
++                       unsigned long count)
++{
++    struct dirent_cache_priv *priv = (struct dirent_cache_priv *)cache;
++    int index = 0;
++
++    if (priv == NULL)
++        return -1;
++
++    if (count > 1) {
++        /* Referencing elmfat behavior: only one sector can be set per call */
++        return 0;
++    }
++
++    index = dirent_sector_binary_search(priv, 0, priv->id_count - 1, (unsigned int)sector);
++    if (index < 0)
++        return 0;
++
++    struct dirent_cache_node *dnode;
++
++    dnode = dirent_lru_node_get_oldest(priv);
++    if (!dnode) {
++        /* No buffer */
++        return 0;
++    }
++
++    dirent_lru_node_set_data(priv, dnode, buff, index);
++    dirent_lru_node_set_latest(priv, dnode);
++
++    return count;
++}
++
++uint32_t image_calc_checksum(uint8_t *buf, uint32_t size)
++{
++    uint32_t i, val, sum, rest, cnt;
++    uint8_t *p;
++    uint32_t *p32, *pe32;
++
++    p = buf;
++    i = 0;
++    sum = 0;
++    cnt = size >> 2;
++
++    if ((unsigned long)buf & 0x3) {
++        for (i = 0; i < cnt; i++) {
++            p = &buf[i * 4];
++            val = (p[3] << 24) | (p[2] << 16) | (p[1] << 8) | p[0];
++            sum += val;
++        }
++    } else {
++        p32 = (uint32_t *)buf;
++        pe32 = p32 + cnt;
++        while (p32 < pe32) {
++            sum += *p32;
++            p32++;
++        }
++    }
++
++    /* Calculate not 32 bit aligned part */
++    rest = size - (cnt << 2);
++    p = &buf[cnt * 4];
++    val = 0;
++    for (i = 0; i < rest; i++)
++        val += (p[i] << (i * 8));
++    sum += val;
++
++    return sum;
++}
++
++int f_dirent_cache_get_sector_info(unsigned char *boot_sect, unsigned int *start_sect,
++                                   unsigned int *bytelen)
++{
++    struct aicfat_head_info head;
++    uint32_t cksum = 0;
++
++    if (boot_sect == NULL) {
++        return -1;
++    }
++
++    memcpy(&head, boot_sect + 0x80, sizeof(head));
++    if (head.magic != AIC_FAT_HEAD_MAGIC) {
++        return -1;
++    }
++
++    cksum = image_calc_checksum((void *)&head, sizeof(head));
++    if (cksum != 0xFFFFFFFF) {
++        return -1;
++    }
++
++    if (head.version <= 0x100)
++        return -1;
++    if (head.dirent_data_len == 0)
++        return -1;
++
++    *start_sect = head.dirent_sect_id;
++    *bytelen = head.dirent_data_len;
++
++    return 0;
++}
++
+diff --git a/kernel/rt-thread/components/dfs/filesystems/elmfat/dirents_cache.h b/kernel/rt-thread/components/dfs/filesystems/elmfat/dirents_cache.h
+new file mode 100644
+index 0000000..4b79a2d
+--- /dev/null
++++ b/kernel/rt-thread/components/dfs/filesystems/elmfat/dirents_cache.h
+@@ -0,0 +1,38 @@
++/*
++ * Copyright (c) 2026, ArtInChip Technology Co., Ltd
++ *
++ * SPDX-License-Identifier: Apache-2.0
++ */
++
++#ifndef __DIRENTS_CACHE_H__
++#define __DIRENTS_CACHE_H__
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++/* Dirent cache state: data is not cached in memory yet. */
++#define DIRENT_DATA_MISSED    0
++/* Dirent cache state: program error. */
++#define DIRENT_DATA_ERROR     -1
++/* Dirent cache state: sector not found in cache list. */
++#define DIRENT_DATA_NOT_FOUND -2
++
++typedef void *dirent_cache_t;
++
++dirent_cache_t f_dirent_cache_init(unsigned int *id_list, unsigned int id_cnt,
++                                   unsigned int sector_size);
++dirent_cache_t f_dirent_cache_create(char *drive_root, unsigned int sector_size);
++void f_dirent_cache_free(dirent_cache_t cache);
++int f_dirent_cache_read(dirent_cache_t cache, unsigned long sector, unsigned char *buff,
++                        unsigned long count);
++int f_dirent_cache_set(dirent_cache_t cache, unsigned long sector, unsigned char *buff,
++                       unsigned long count);
++int f_dirent_cache_get_sector_info(unsigned char *boot_sect, unsigned int *start_sect,
++                                   unsigned int *bytelen);
++
++#ifdef __cplusplus
++}
++#endif
++
++#endif /* __DIRENTS_CACHE_H__ */
+diff --git a/kernel/rt-thread/components/dfs/include/dfs_fs.h b/kernel/rt-thread/components/dfs/include/dfs_fs.h
+index 6178a1e..3281dab 100644
+--- a/kernel/rt-thread/components/dfs/include/dfs_fs.h
++++ b/kernel/rt-thread/components/dfs/include/dfs_fs.h
+@@ -37,6 +37,14 @@
+  */
+ #define DFS_MOUNT_PRIO_LATE    1
+ 
++/**
++ * @brief Mount flag constant for read-only filesystem mounting
++ * 
++ * This macro defines the flag value used to indicate that a filesystem
++ * should be mounted in read-only mode, preventing any write operations.
++ */
++#define MS_RDONLY      1
++
+ /* Pre-declaration */
+ struct dfs_filesystem;
+ struct dfs_fd;
+diff --git a/kernel/rt-thread/components/drivers/sdio/block_dev.c b/kernel/rt-thread/components/drivers/sdio/block_dev.c
+index bcef104..481c6cc 100644
+--- a/kernel/rt-thread/components/drivers/sdio/block_dev.c
++++ b/kernel/rt-thread/components/drivers/sdio/block_dev.c
+@@ -506,7 +506,7 @@
+                 if (!strcmp(ro_target, blk_dev->part.name) ||
+                     !strcmp(ro_target, blk_dev->dev.parent.name)) {
+                     /* Try to mount the rodata device */
+-                    if (dfs_mount(blk_dev->dev.parent.name, "/rodata", "elm", 0, 0) == 0)
++                    if (dfs_mount(blk_dev->dev.parent.name, "/rodata", "elm", MS_RDONLY, 0) == 0)
+                         LOG_I("mount fs[elm] device[%s] to /rodata ok.\n", blk_dev->dev.parent.name);
+                 }
+             }
+diff --git a/kernel/rt-thread/components/finsh/msh_file.c b/kernel/rt-thread/components/finsh/msh_file.c
+index 85418f0..ed0619a 100644
+--- a/kernel/rt-thread/components/finsh/msh_file.c
++++ b/kernel/rt-thread/components/finsh/msh_file.c
+@@ -18,7 +18,6 @@
+ #include <dfs_file.h>
+ #include <unistd.h>
+ #include <fcntl.h>
+-#include <stdio.h>
+ 
+ static int msh_readline(int fd, char *line_buf, int size)
+ {
+@@ -32,8 +31,7 @@
+             /* nothing in this file */
+             return 0;
+         }
+-    }
+-    while (ch == '\n' || ch == '\r');
++    } while (ch == '\n' || ch == '\r');
+ 
+     /* set the first character */
+     line_buf[index ++] = ch;
+@@ -130,8 +128,7 @@
+                 if (ch != '#') /* not a comment */
+                     msh_exec(line_buf, length);
+             }
+-        }
+-        while (length > 0);
++        } while (length > 0);
+ 
+         close(fd);
+         rt_free(line_buf);
+@@ -501,15 +498,21 @@
+         }
+         return 0;
+     }
+-    else if (argc == 4)
++    else if (argc == 4 || argc == 5)
+     {
+         char *device = argv[1];
+         char *path = argv[2];
+         char *fstype = argv[3];
++        unsigned long rwflag = 0;
++
++
++        if (argc == 5 && !strcmp(argv[4], "ro"))
++            rwflag = MS_RDONLY;
+ 
+         /* mount a filesystem to the specified directory */
+-        rt_kprintf("mount device %s(%s) onto %s ... ", device, fstype, path);
+-        if (dfs_mount(device, path, fstype, 0, 0) == 0)
++        rt_kprintf("mount device %s(%s) onto %s %s... ", device, fstype, path,
++                   rwflag ? "in read only" : "");
++        if (dfs_mount(device, path, fstype, rwflag, 0) == 0)
+         {
+             rt_kprintf("succeed!\n");
+             return 0;
+diff --git a/packages/artinchip/env/absystem_os.c b/packages/artinchip/env/absystem_os.c
+index 8dad300..5995959 100644
+--- a/packages/artinchip/env/absystem_os.c
++++ b/packages/artinchip/env/absystem_os.c
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (c) 2022-2025, ArtInChip Technology Co., Ltd
++ * Copyright (c) 2022-2026, ArtInChip Technology Co., Ltd
+  *
+  * SPDX-License-Identifier: Apache-2.0
+  *
+@@ -248,7 +248,7 @@
+             aic_get_rodata_to_mount(target);
+             printf("Mount APP in blk %s\n", target);
+ 
+-            if (dfs_mount(target, "/rodata", "elm", 0, 0) < 0)
++            if (dfs_mount(target, "/rodata", "elm", MS_RDONLY, 0) < 0)
+                 printf("Failed to mount elm\n");
+ 
+         } else {
+diff --git a/target/aic1805/fpga/board.c b/target/aic1805/fpga/board.c
+index 231a30c..6b7aeb0 100644
+--- a/target/aic1805/fpga/board.c
++++ b/target/aic1805/fpga/board.c
+@@ -1,5 +1,5 @@
+ /*
+- * Copyright (c) 2022-2025, ArtInChip Technology Co., Ltd
++ * Copyright (c) 2022-2026, ArtInChip Technology Co., Ltd
+  *
+  * SPDX-License-Identifier: Apache-2.0
+  *
+@@ -171,7 +171,7 @@
+ #endif
+ #ifndef AIC_AB_SYSTEM_INTERFACE
+ #if (defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_0) || defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_1))
+-        {"blk_rodata", "/rodata", "elm", 0, 0, 0},
++    {"blk_rodata", "/rodata", "elm", MS_RDONLY, 0, DFS_MOUNT_PRIO_EARLY},
+ #endif
+ #if (defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_1))
+         {"blk_data", "/data", "elm", 0, 0, 1},
+diff --git a/target/d12x/demo68-mmc/board.c b/target/d12x/demo68-mmc/board.c
+index 15f2e52..fb388d8 100644
+--- a/target/d12x/demo68-mmc/board.c
++++ b/target/d12x/demo68-mmc/board.c
+@@ -204,7 +204,7 @@
+ #endif
+ #ifndef AIC_AB_SYSTEM_INTERFACE
+ #if (defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_0) || defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_1))
+-    {"blk_rodata", "/rodata", "elm", 0, 0, DFS_MOUNT_PRIO_EARLY},
++    {"blk_rodata", "/rodata", "elm", MS_RDONLY, 0, DFS_MOUNT_PRIO_EARLY},
+ #endif
+ #endif
+ #ifdef LPKG_USING_LITTLEFS
+diff --git a/target/d12x/demo68-nand/board.c b/target/d12x/demo68-nand/board.c
+index 7da35be..bb7a16e 100644
+--- a/target/d12x/demo68-nand/board.c
++++ b/target/d12x/demo68-nand/board.c
+@@ -201,7 +201,7 @@
+ #endif
+ #ifndef AIC_AB_SYSTEM_INTERFACE
+ #if (defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_0) || defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_1))
+-        {"blk_rodata", "/rodata", "elm", 0, 0, DFS_MOUNT_PRIO_EARLY},
++        {"blk_rodata", "/rodata", "elm", MS_RDONLY, 0, DFS_MOUNT_PRIO_EARLY},
+ #endif
+ #if (defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_1))
+         {"blk_data", "/data", "elm", 0, 0, DFS_MOUNT_PRIO_LATE},
+diff --git a/target/d12x/demo68-nor/board.c b/target/d12x/demo68-nor/board.c
+index 6d1276d..a1cc4a8 100644
+--- a/target/d12x/demo68-nor/board.c
++++ b/target/d12x/demo68-nor/board.c
+@@ -204,7 +204,7 @@
+ #endif
+ #ifndef AIC_AB_SYSTEM_INTERFACE
+ #if (defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_0) || defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_1))
+-    {"blk_rodata", "/rodata", "elm", 0, 0, DFS_MOUNT_PRIO_EARLY},
++    {"blk_rodata", "/rodata", "elm", MS_RDONLY, 0, DFS_MOUNT_PRIO_EARLY},
+ #endif
+ #endif
+ #ifdef LPKG_USING_LITTLEFS
+diff --git a/target/d12x/hmi-nor/board.c b/target/d12x/hmi-nor/board.c
+index d77b299..f421e8a 100644
+--- a/target/d12x/hmi-nor/board.c
++++ b/target/d12x/hmi-nor/board.c
+@@ -175,7 +175,7 @@
+ #endif
+ #ifndef AIC_AB_SYSTEM_INTERFACE
+ #if (defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_0) || defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_1))
+-    {"blk_rodata", "/rodata", "elm", 0, 0, DFS_MOUNT_PRIO_EARLY},
++    {"blk_rodata", "/rodata", "elm", MS_RDONLY, 0, DFS_MOUNT_PRIO_EARLY},
+ #endif
+ #endif
+ #ifdef LPKG_USING_LITTLEFS
+diff --git a/target/d12x/qc68-nor/board.c b/target/d12x/qc68-nor/board.c
+index a99a54b..70f6ce0 100644
+--- a/target/d12x/qc68-nor/board.c
++++ b/target/d12x/qc68-nor/board.c
+@@ -174,7 +174,7 @@
+     {"ramdisk0", "/ram", "elm", 0, 0, DFS_MOUNT_PRIO_EARLY},
+ #endif
+ #if (defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_0) || defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_1))
+-    {"blk_rodata", "/rodata", "elm", 0, 0, DFS_MOUNT_PRIO_EARLY},
++    {"blk_rodata", "/rodata", "elm", MS_RDONLY, 0, DFS_MOUNT_PRIO_EARLY},
+ #endif
+ #ifdef LPKG_USING_LITTLEFS
+     {"data", "/data", "lfs", 0, 0, DFS_MOUNT_PRIO_EARLY},
+diff --git a/target/d12x/qemu/board.c b/target/d12x/qemu/board.c
+index a256fff..af68c09 100644
+--- a/target/d12x/qemu/board.c
++++ b/target/d12x/qemu/board.c
+@@ -204,7 +204,7 @@
+ #endif
+ #ifndef AIC_AB_SYSTEM_INTERFACE
+ #if (defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_0) || defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_1))
+-    {"blk_rodata", "/rodata", "elm", 0, 0, DFS_MOUNT_PRIO_EARLY},
++    {"blk_rodata", "/rodata", "elm", MS_RDONLY, 0, DFS_MOUNT_PRIO_EARLY},
+ #endif
+ #endif
+ #ifdef LPKG_USING_LITTLEFS
+diff --git a/target/d13x/demo68-nor/board.c b/target/d13x/demo68-nor/board.c
+index 6c82766..4df58db 100644
+--- a/target/d13x/demo68-nor/board.c
++++ b/target/d13x/demo68-nor/board.c
+@@ -208,7 +208,7 @@
+ #endif
+ #ifndef AIC_AB_SYSTEM_INTERFACE
+ #if (defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_0) || defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_1))
+-    {"blk_rodata", "/rodata", "elm", 0, 0, DFS_MOUNT_PRIO_EARLY},
++    {"blk_rodata", "/rodata", "elm", MS_RDONLY, 0, DFS_MOUNT_PRIO_EARLY},
+ #endif
+ #endif
+ #ifdef LPKG_USING_LITTLEFS
+diff --git a/target/d13x/demo88-mmc/board.c b/target/d13x/demo88-mmc/board.c
+index b2ea2a4..682a20f 100644
+--- a/target/d13x/demo88-mmc/board.c
++++ b/target/d13x/demo88-mmc/board.c
+@@ -207,7 +207,7 @@
+     {"ramdisk0", "/ram", "elm", 0, 0, DFS_MOUNT_PRIO_EARLY},
+ #endif
+ #if (defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_0) || defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_1))
+-    {"blk_rodata", "/rodata", "elm", 0, 0, DFS_MOUNT_PRIO_EARLY},
++    {"blk_rodata", "/rodata", "elm", MS_RDONLY, 0, DFS_MOUNT_PRIO_EARLY},
+ #endif
+ #ifdef LPKG_USING_LITTLEFS
+     {"data", "/data", "lfs", 0, 0, DFS_MOUNT_PRIO_EARLY},
+diff --git a/target/d13x/demo88-nand/board.c b/target/d13x/demo88-nand/board.c
+index 261ade1..594e8aa 100644
+--- a/target/d13x/demo88-nand/board.c
++++ b/target/d13x/demo88-nand/board.c
+@@ -211,7 +211,7 @@
+ #endif
+ #ifndef AIC_AB_SYSTEM_INTERFACE
+ #if (defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_0) || defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_1))
+-    {"blk_rodata", "/rodata", "elm", 0, 0, DFS_MOUNT_PRIO_EARLY},
++    {"blk_rodata", "/rodata", "elm", MS_RDONLY, 0, DFS_MOUNT_PRIO_EARLY},
+     {"blk_data", "/data", "elm", 0, 0, DFS_MOUNT_PRIO_LATE},
+ #endif
+ #endif
+diff --git a/target/d13x/demo88-nor-secure/board.c b/target/d13x/demo88-nor-secure/board.c
+index d8be741..15c7725 100644
+--- a/target/d13x/demo88-nor-secure/board.c
++++ b/target/d13x/demo88-nor-secure/board.c
+@@ -211,7 +211,7 @@
+ #endif
+ #ifndef AIC_AB_SYSTEM_INTERFACE
+ #if (defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_0) || defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_1))
+-    {"blk_rodata", "/rodata", "elm", 0, 0, DFS_MOUNT_PRIO_EARLY},
++    {"blk_rodata", "/rodata", "elm", MS_RDONLY, 0, DFS_MOUNT_PRIO_EARLY},
+ #endif
+ #endif
+ #ifdef LPKG_USING_LITTLEFS
+diff --git a/target/d13x/demo88-nor/board.c b/target/d13x/demo88-nor/board.c
+index d8be741..15c7725 100644
+--- a/target/d13x/demo88-nor/board.c
++++ b/target/d13x/demo88-nor/board.c
+@@ -211,7 +211,7 @@
+ #endif
+ #ifndef AIC_AB_SYSTEM_INTERFACE
+ #if (defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_0) || defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_1))
+-    {"blk_rodata", "/rodata", "elm", 0, 0, DFS_MOUNT_PRIO_EARLY},
++    {"blk_rodata", "/rodata", "elm", MS_RDONLY, 0, DFS_MOUNT_PRIO_EARLY},
+ #endif
+ #endif
+ #ifdef LPKG_USING_LITTLEFS
+diff --git a/target/d13x/hspi100-nor/board.c b/target/d13x/hspi100-nor/board.c
+index 816244a..8ce5fad 100644
+--- a/target/d13x/hspi100-nor/board.c
++++ b/target/d13x/hspi100-nor/board.c
+@@ -211,7 +211,7 @@
+ #endif
+ #ifndef AIC_AB_SYSTEM_INTERFACE
+ #if (defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_0) || defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_1))
+-    {"blk_rodata", "/rodata", "elm", 0, 0, DFS_MOUNT_PRIO_EARLY},
++    {"blk_rodata", "/rodata", "elm", MS_RDONLY, 0, DFS_MOUNT_PRIO_EARLY},
+ #endif
+ #endif
+ #ifdef LPKG_USING_LITTLEFS
+diff --git a/target/d13x/kunlunpi88-nor/board.c b/target/d13x/kunlunpi88-nor/board.c
+index ff81851..863cb79 100644
+--- a/target/d13x/kunlunpi88-nor/board.c
++++ b/target/d13x/kunlunpi88-nor/board.c
+@@ -182,7 +182,7 @@
+ #endif
+ #ifndef AIC_AB_SYSTEM_INTERFACE
+ #if (defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_0) || defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_1))
+-    {"blk_rodata", "/rodata", "elm", 0, 0, DFS_MOUNT_PRIO_EARLY},
++    {"blk_rodata", "/rodata", "elm", MS_RDONLY, 0, DFS_MOUNT_PRIO_EARLY},
+ #endif
+ #endif
+ #ifdef LPKG_USING_LITTLEFS
+diff --git a/target/d13x/per1-nand/board.c b/target/d13x/per1-nand/board.c
+index beedda4..8782e70 100644
+--- a/target/d13x/per1-nand/board.c
++++ b/target/d13x/per1-nand/board.c
+@@ -183,7 +183,7 @@
+     {"ramdisk0", "/ram", "elm", 0, 0, DFS_MOUNT_PRIO_EARLY},
+ #endif
+ #if (defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_0) || defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_1))
+-    {"blk_rodata", "/rodata", "elm", 0, 0, DFS_MOUNT_PRIO_EARLY},
++    {"blk_rodata", "/rodata", "elm", MS_RDONLY, 0, DFS_MOUNT_PRIO_EARLY},
+     {"blk_data", "/data", "elm", 0, 0, DFS_MOUNT_PRIO_LATE},
+ #endif
+ #ifdef LPKG_USING_DFS_UFFS
+diff --git a/target/d13x/per1-nor/board.c b/target/d13x/per1-nor/board.c
+index a781903..4b1a761 100644
+--- a/target/d13x/per1-nor/board.c
++++ b/target/d13x/per1-nor/board.c
+@@ -187,7 +187,7 @@
+ #ifndef AIC_AB_SYSTEM_INTERFACE
+ #if (defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_0) || \
+      defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_1))
+-    { "blk_rodata", "/rodata", "elm", 0, 0, DFS_MOUNT_PRIO_EARLY },
++    { "blk_rodata", "/rodata", "elm", MS_RDONLY, 0, DFS_MOUNT_PRIO_EARLY },
+ #endif
+ #endif
+ #ifdef LPKG_USING_LITTLEFS
+diff --git a/target/d13x/qc100-nor/board.c b/target/d13x/qc100-nor/board.c
+index 5a74a65..ba80c90 100644
+--- a/target/d13x/qc100-nor/board.c
++++ b/target/d13x/qc100-nor/board.c
+@@ -181,7 +181,7 @@
+     {"ramdisk0", "/ram", "elm", 0, 0, DFS_MOUNT_PRIO_EARLY},
+ #endif
+ #if (defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_0) || defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_1))
+-    {"blk_rodata", "/rodata", "elm", 0, 0, DFS_MOUNT_PRIO_EARLY},
++    {"blk_rodata", "/rodata", "elm", MS_RDONLY, 0, DFS_MOUNT_PRIO_EARLY},
+ #endif
+ #ifdef LPKG_USING_LITTLEFS
+     {"data", "/data", "lfs", 0, 0, DFS_MOUNT_PRIO_EARLY},
+diff --git a/target/d13x/qc68-mmc/board.c b/target/d13x/qc68-mmc/board.c
+index 46fa819..32e798b 100644
+--- a/target/d13x/qc68-mmc/board.c
++++ b/target/d13x/qc68-mmc/board.c
+@@ -207,8 +207,8 @@
+     {"ramdisk0", "/ram", "elm", 0, 0, DFS_MOUNT_PRIO_EARLY},
+ #endif
+ #if (defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_0) || defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_1))
+-    //{"blk_rodata", "/rodata", "elm", 0, 0, DFS_MOUNT_PRIO_EARLY},
+-    //{"sd0p2", "/rodata", "elm", 0, 0, DFS_MOUNT_PRIO_EARLY},
++    //{"blk_rodata", "/rodata", "elm", MS_RDONLY, 0, DFS_MOUNT_PRIO_EARLY},
++    //{"sd0p2", "/rodata", "elm", MS_RDONLY, 0, DFS_MOUNT_PRIO_EARLY},
+     {"sd0p3", "/data",   "elm", 0, 0, DFS_MOUNT_PRIO_EARLY},
+ #endif
+ #ifdef LPKG_USING_LITTLEFS
+diff --git a/target/d13x/qc68-nor/board.c b/target/d13x/qc68-nor/board.c
+index 04ec1bd..177d355 100644
+--- a/target/d13x/qc68-nor/board.c
++++ b/target/d13x/qc68-nor/board.c
+@@ -182,7 +182,7 @@
+ #endif
+ #ifndef AIC_AB_SYSTEM_INTERFACE
+ #if (defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_0) || defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_1))
+-    {"blk_rodata", "/rodata", "elm", 0, 0, DFS_MOUNT_PRIO_EARLY},
++    {"blk_rodata", "/rodata", "elm", MS_RDONLY, 0, DFS_MOUNT_PRIO_EARLY},
+ #endif
+ #endif
+ #ifdef LPKG_USING_LITTLEFS
+diff --git a/target/d13x/qc88-nor/board.c b/target/d13x/qc88-nor/board.c
+index df615e7..49ef7b9 100644
+--- a/target/d13x/qc88-nor/board.c
++++ b/target/d13x/qc88-nor/board.c
+@@ -181,7 +181,7 @@
+     {"ramdisk0", "/ram", "elm", 0, 0, DFS_MOUNT_PRIO_EARLY},
+ #endif
+ #if (defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_0) || defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_1))
+-    {"blk_rodata", "/rodata", "elm", 0, 0, DFS_MOUNT_PRIO_EARLY},
++    {"blk_rodata", "/rodata", "elm", MS_RDONLY, 0, DFS_MOUNT_PRIO_EARLY},
+ #endif
+ #ifdef LPKG_USING_LITTLEFS
+     {"data", "/data", "lfs", 0, 0, DFS_MOUNT_PRIO_EARLY},
+diff --git a/target/d21x/d215-demo88-nand/board.c b/target/d21x/d215-demo88-nand/board.c
+index 8c01648..6bf560e 100644
+--- a/target/d21x/d215-demo88-nand/board.c
++++ b/target/d21x/d215-demo88-nand/board.c
+@@ -192,7 +192,7 @@
+ #endif
+ #ifndef AIC_AB_SYSTEM_INTERFACE
+ #if (defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_0) || defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_1))
+-    {"blk_rodata", "/rodata", "elm", 0, 0, DFS_MOUNT_PRIO_EARLY},
++    {"blk_rodata", "/rodata", "elm", MS_RDONLY, 0, DFS_MOUNT_PRIO_EARLY},
+     {"blk_data", "/data", "elm", 0, 0, DFS_MOUNT_PRIO_LATE},
+ #endif
+ #endif
+diff --git a/target/d21x/d215-demo88-nor/board.c b/target/d21x/d215-demo88-nor/board.c
+index 2af005c..d1d96fe 100644
+--- a/target/d21x/d215-demo88-nor/board.c
++++ b/target/d21x/d215-demo88-nor/board.c
+@@ -193,7 +193,7 @@
+ #endif
+ #ifndef AIC_AB_SYSTEM_INTERFACE
+ #if defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_0)
+-    {"blk_rodata", "/rodata", "elm", 0, 0, DFS_MOUNT_PRIO_EARLY},
++    {"blk_rodata", "/rodata", "elm", MS_RDONLY, 0, DFS_MOUNT_PRIO_EARLY},
+ #endif
+ #if defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_1)
+     {"blk_data", "/data", "elm", 0, 0, DFS_MOUNT_PRIO_LATE},
+diff --git a/target/d21x/demo100-nand/board.c b/target/d21x/demo100-nand/board.c
+index c732f71..b243b4f 100644
+--- a/target/d21x/demo100-nand/board.c
++++ b/target/d21x/demo100-nand/board.c
+@@ -167,7 +167,7 @@
+ #endif
+ #ifndef AIC_AB_SYSTEM_INTERFACE
+ #if (defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_0) || defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_1))
+-    {"blk_rodata", "/rodata", "elm", 0, 0, DFS_MOUNT_PRIO_EARLY},
++    {"blk_rodata", "/rodata", "elm", MS_RDONLY, 0, DFS_MOUNT_PRIO_EARLY},
+ #endif
+ #if (defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_0) || defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_1))
+     {"blk_data", "/data", "elm", 0, 0, DFS_MOUNT_PRIO_LATE},
+diff --git a/target/d21x/demo100-nor/board.c b/target/d21x/demo100-nor/board.c
+index 3537eb8..a991d83 100644
+--- a/target/d21x/demo100-nor/board.c
++++ b/target/d21x/demo100-nor/board.c
+@@ -167,7 +167,7 @@
+ #endif
+ #ifndef AIC_AB_SYSTEM_INTERFACE
+ #if defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_0)
+-    {"blk_rodata", "/rodata", "elm", 0, 0, DFS_MOUNT_PRIO_EARLY},
++    {"blk_rodata", "/rodata", "elm", MS_RDONLY, 0, DFS_MOUNT_PRIO_EARLY},
+ #endif
+ #endif
+ #ifdef AIC_USING_FS_IMAGE_TYPE_LITTLEFS_FOR_1
+diff --git a/target/d21x/demo128-mmc/board.c b/target/d21x/demo128-mmc/board.c
+index f9bce97..ef3b206 100644
+--- a/target/d21x/demo128-mmc/board.c
++++ b/target/d21x/demo128-mmc/board.c
+@@ -196,7 +196,7 @@
+ #endif
+ #ifdef AIC_USING_SDMC0
+ #ifndef AIC_AB_SYSTEM_INTERFACE
+-    {"mmc0p5", "/rodata", "elm", 0, 0, DFS_MOUNT_PRIO_EARLY},
++    {"mmc0p5", "/rodata", "elm", MS_RDONLY, 0, DFS_MOUNT_PRIO_EARLY},
+     {"mmc0p7", "/data",   "elm", 0, 0, DFS_MOUNT_PRIO_EARLY},
+ #endif
+ #endif
+diff --git a/target/d21x/demo128-nand/board.c b/target/d21x/demo128-nand/board.c
+index 0b0ea05..49f9058 100644
+--- a/target/d21x/demo128-nand/board.c
++++ b/target/d21x/demo128-nand/board.c
+@@ -193,7 +193,7 @@
+ #endif
+ #ifndef AIC_AB_SYSTEM_INTERFACE
+ #if (defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_0) || defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_1))
+-    {"blk_rodata", "/rodata", "elm", 0, 0, DFS_MOUNT_PRIO_EARLY},
++    {"blk_rodata", "/rodata", "elm", MS_RDONLY, 0, DFS_MOUNT_PRIO_EARLY},
+     {"blk_data", "/data", "elm", 0, 0, DFS_MOUNT_PRIO_LATE},
+ #endif
+ #endif
+diff --git a/target/d21x/demo88-mmc/board.c b/target/d21x/demo88-mmc/board.c
+index 6df10c8..087d6af 100644
+--- a/target/d21x/demo88-mmc/board.c
++++ b/target/d21x/demo88-mmc/board.c
+@@ -193,7 +193,7 @@
+ #endif
+ #ifdef AIC_USING_SDMC0
+ #ifndef AIC_AB_SYSTEM_INTERFACE
+-    {"mmc0p5", "/rodata", "elm", 0, 0, DFS_MOUNT_PRIO_EARLY},
++    {"mmc0p5", "/rodata", "elm", MS_RDONLY, 0, DFS_MOUNT_PRIO_EARLY},
+     {"mmc0p7", "/data",   "elm", 0, 0, DFS_MOUNT_PRIO_EARLY},
+ #endif
+ #endif
+diff --git a/target/d21x/demo88-nand/board.c b/target/d21x/demo88-nand/board.c
+index f699f99..66c8472 100644
+--- a/target/d21x/demo88-nand/board.c
++++ b/target/d21x/demo88-nand/board.c
+@@ -193,7 +193,7 @@
+ #endif
+ #ifndef AIC_AB_SYSTEM_INTERFACE
+ #if (defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_0) || defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_1))
+-    {"blk_rodata", "/rodata", "elm", 0, 0, DFS_MOUNT_PRIO_EARLY},
++    {"blk_rodata", "/rodata", "elm", MS_RDONLY, 0, DFS_MOUNT_PRIO_EARLY},
+     {"blk_data", "/data", "elm", 0, 0, DFS_MOUNT_PRIO_LATE},
+ #endif
+ #endif
+diff --git a/target/d21x/demo88-nor/board.c b/target/d21x/demo88-nor/board.c
+index e39f3b7..d6d331f 100644
+--- a/target/d21x/demo88-nor/board.c
++++ b/target/d21x/demo88-nor/board.c
+@@ -193,7 +193,7 @@
+ #endif
+ #ifndef AIC_AB_SYSTEM_INTERFACE
+ #if defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_0)
+-    {"blk_rodata", "/rodata", "elm", 0, 0, DFS_MOUNT_PRIO_EARLY},
++    {"blk_rodata", "/rodata", "elm", MS_RDONLY, 0, DFS_MOUNT_PRIO_EARLY},
+ #endif
+ #endif
+ #ifdef AIC_USING_FS_IMAGE_TYPE_LITTLEFS_FOR_1
+diff --git a/target/d21x/qc100/board.c b/target/d21x/qc100/board.c
+index 2dc0b23..3f8e3a7 100644
+--- a/target/d21x/qc100/board.c
++++ b/target/d21x/qc100/board.c
+@@ -167,7 +167,7 @@
+ #endif
+ #ifndef AIC_AB_SYSTEM_INTERFACE
+ #if defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_0)
+-    {"blk_rodata", "/rodata", "elm", 0, 0, DFS_MOUNT_PRIO_EARLY},
++    {"blk_rodata", "/rodata", "elm", MS_RDONLY, 0, DFS_MOUNT_PRIO_EARLY},
+ #endif
+ #if (!defined(AIC_SPINOR_DRV) && defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_1))
+     {"blk_data", "/data", "elm", 0, 0, DFS_MOUNT_PRIO_LATE},
+diff --git a/target/g73x/demo100-nor/board.c b/target/g73x/demo100-nor/board.c
+index 1140415..34bd711 100644
+--- a/target/g73x/demo100-nor/board.c
++++ b/target/g73x/demo100-nor/board.c
+@@ -185,7 +185,7 @@
+ #endif
+ #ifndef AIC_AB_SYSTEM_INTERFACE
+ #if (defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_0) || defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_1))
+-    {"blk_rodata", "/rodata", "elm", 0, 0, DFS_MOUNT_PRIO_EARLY},
++    {"blk_rodata", "/rodata", "elm", MS_RDONLY, 0, DFS_MOUNT_PRIO_EARLY},
+ #endif
+ #endif
+ #ifdef LPKG_USING_LITTLEFS
+diff --git a/target/g73x/demo68-nor/board.c b/target/g73x/demo68-nor/board.c
+index b20995d..0ac967f 100644
+--- a/target/g73x/demo68-nor/board.c
++++ b/target/g73x/demo68-nor/board.c
+@@ -166,7 +166,7 @@
+ #endif
+ #ifndef AIC_AB_SYSTEM_INTERFACE
+ #if (defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_0) || defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_1))
+-    {"blk_rodata", "/rodata", "elm", 0, 0, DFS_MOUNT_PRIO_EARLY},
++    {"blk_rodata", "/rodata", "elm", MS_RDONLY, 0, DFS_MOUNT_PRIO_EARLY},
+ #endif
+ #endif
+ #ifdef LPKG_USING_LITTLEFS
+diff --git a/target/g73x/qc68-mmc/board.c b/target/g73x/qc68-mmc/board.c
+index 46fa819..32e798b 100644
+--- a/target/g73x/qc68-mmc/board.c
++++ b/target/g73x/qc68-mmc/board.c
+@@ -207,8 +207,8 @@
+     {"ramdisk0", "/ram", "elm", 0, 0, DFS_MOUNT_PRIO_EARLY},
+ #endif
+ #if (defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_0) || defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_1))
+-    //{"blk_rodata", "/rodata", "elm", 0, 0, DFS_MOUNT_PRIO_EARLY},
+-    //{"sd0p2", "/rodata", "elm", 0, 0, DFS_MOUNT_PRIO_EARLY},
++    //{"blk_rodata", "/rodata", "elm", MS_RDONLY, 0, DFS_MOUNT_PRIO_EARLY},
++    //{"sd0p2", "/rodata", "elm", MS_RDONLY, 0, DFS_MOUNT_PRIO_EARLY},
+     {"sd0p3", "/data",   "elm", 0, 0, DFS_MOUNT_PRIO_EARLY},
+ #endif
+ #ifdef LPKG_USING_LITTLEFS
+diff --git a/target/g73x/qc88-nor/board.c b/target/g73x/qc88-nor/board.c
+index 1140415..34bd711 100644
+--- a/target/g73x/qc88-nor/board.c
++++ b/target/g73x/qc88-nor/board.c
+@@ -185,7 +185,7 @@
+ #endif
+ #ifndef AIC_AB_SYSTEM_INTERFACE
+ #if (defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_0) || defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_1))
+-    {"blk_rodata", "/rodata", "elm", 0, 0, DFS_MOUNT_PRIO_EARLY},
++    {"blk_rodata", "/rodata", "elm", MS_RDONLY, 0, DFS_MOUNT_PRIO_EARLY},
+ #endif
+ #endif
+ #ifdef LPKG_USING_LITTLEFS
+diff --git a/target/g73x/scan/board.c b/target/g73x/scan/board.c
+index 74d640a..1f7a512 100644
+--- a/target/g73x/scan/board.c
++++ b/target/g73x/scan/board.c
+@@ -166,7 +166,7 @@
+ #endif
+ #ifndef AIC_AB_SYSTEM_INTERFACE
+ #if (defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_0) || defined(AIC_USING_FS_IMAGE_TYPE_FATFS_FOR_1))
+-    {"blk_rodata", "/rodata", "elm", 0, 0, DFS_MOUNT_PRIO_EARLY},
++    {"blk_rodata", "/rodata", "elm", MS_RDONLY, 0, DFS_MOUNT_PRIO_EARLY},
+ #endif
+ #endif
+ #ifdef LPKG_USING_LITTLEFS
+diff --git a/tools/scripts/fatupdate b/tools/scripts/fatupdate
+new file mode 100755
+index 0000000..de69bbe
+--- /dev/null
++++ b/tools/scripts/fatupdate
+Binary files differ
+diff --git a/tools/scripts/fatupdate.exe b/tools/scripts/fatupdate.exe
+new file mode 100755
+index 0000000..723d97f
+--- /dev/null
++++ b/tools/scripts/fatupdate.exe
+Binary files differ
+diff --git a/tools/scripts/makefatfs.py b/tools/scripts/makefatfs.py
+index b5275bb..fca5374 100644
+--- a/tools/scripts/makefatfs.py
++++ b/tools/scripts/makefatfs.py
+@@ -3,7 +3,7 @@
+ # SPDX-License-Identifier: Apache-2.0
+ #
+ # Dehuang.Wu
+-# Copyright (C) 2021-2025 ArtInChip Technology Co., Ltd
++# Copyright (C) 2021-2026 ArtInChip Technology Co., Ltd
+ 
+ import os
+ import re
+@@ -176,16 +176,20 @@
+             uint32_t magic; "AICF", byte order: 'F''C''I''A'
+             uint32_t cksum32;
+             uint32_t length; From Magic to data end
+-            uint32_t version; 1.0
++            uint32_t version; 1.1
+             uint64_t image_size;
+             uint64_t used_size;
++            uint32_t dirent_sect_id;
++            uint32_t dirent_data_len;
+         }
+     """
+     magic = "AICF"
+     cksum = 0
+     datalen = 4+4+4+4+8+8
+-    version = int('0x0100', 16)
++    version = int('0x0101', 16)
+     image_size = total_size
++    dirent_sect_id = 0
++    dirent_datalen = 0
+ 
+     data = magic.encode(encoding="utf-8")
+     data = data + cksum.to_bytes(4, byteorder='little', signed=False)
+@@ -193,6 +197,8 @@
+     data = data + version.to_bytes(4, byteorder='little', signed=False)
+     data = data + image_size.to_bytes(8, byteorder='little', signed=False)
+     data = data + used_size.to_bytes(8, byteorder='little', signed=False)
++    data = data + dirent_sect_id.to_bytes(0, byteorder='little', signed=False)
++    data = data + dirent_datalen.to_bytes(0, byteorder='little', signed=False)
+ 
+     # Update cksum
+     cksum = aic_calc_checksum(data, len(data))
+@@ -318,6 +324,12 @@
+     # Set image information for NFTL offline burn
+     set_image_info_to_boot_sector(args.outfile, imgsiz, minimal_siz)
+ 
++    if platform.system() == 'Linux':
++        fatupdate = '{}fatupdate {}'.format(args.tooldir, args.outfile)
++        run_cmd(fatupdate)
++    elif platform.system() == 'Windows':
++        fatupdate = '{}fatupdate.exe {}'.format(args.tooldir, args.outfile)
++        run_cmd(fatupdate)
+     if strip_siz:
+         if platform.system() == 'Linux':
+             truncate = 'truncate -s {} {}'.format(minimal_siz, args.outfile)

@@ -1,0 +1,875 @@
+#include "video.h"
+
+volatile bool video_renew_flag = false;           // 切换为视频后，重新初始化并路过定位函数
+volatile static bool break_seek_flag = false;           // 切换为视频后，重新初始化并路过定位函数
+volatile static bool delect_video_flag = false;         // 删掉视频播放标志
+volatile static bool play_ok_delect_video_flag = false; // 开始删除视频标志（在电梯信号中）
+volatile static bool elevator_video_flag = false;       // 电梯信号视频播放（在电梯信号中）
+volatile static bool create_player_flag = true;         // 视频播放器初始化标志
+volatile static bool init_video_flag = false;           // 重新初始化视频状态标志
+volatile static bool video_pause_flag = false;          // 视频暂停播放
+volatile static bool stop_video_flag = false;
+// 全局的播放器上下文实例
+struct lvgl_player_context my_lvgl_player_ctx;
+struct lvgl_player_context my_ctx;
+
+// 示例文件名数组，这里假设只有一个视频文件示例，可按需扩展
+static char g_filename[][256] = {
+    LVGL_FILE_LIST_PATH(v1.mp4),
+    LVGL_FILE_LIST_PATH(v2.mp4),
+    LVGL_FILE_LIST_PATH(v3.mp4),
+    LVGL_FILE_LIST_PATH(xihu.mp4),
+    LVGL_FILE_LIST_PATH(v2.avi),
+};
+
+void destroy_player(uint8_t printf_text);
+void destroy_video(void);
+
+// 设置显示区域的函数，根据媒体信息和屏幕尺寸来确定视频显示的矩形区域
+static int set_disp_rect(struct lvgl_player_context *ctx)
+{
+    int ret = 0;
+
+    if (!ctx->media_info.has_video)
+    {
+        return 0;
+    }
+    aic_player_get_screen_size(ctx->player, &ctx->screen_size);
+    // 反转90度后视频宽高互换
+    if (ctx->media_info.video_stream.width > VIDEO_HEIGHT)
+    {
+        rt_kprintf("1\n");
+        ctx->disp_rect.x = 0;
+        ctx->disp_rect.width = VIDEO_HEIGHT;
+    }
+    else
+    {
+        rt_kprintf("2\n");
+        ctx->disp_rect.x = (ctx->screen_size.width - ctx->media_info.video_stream.width) / 2;
+        ctx->disp_rect.width = ctx->media_info.video_stream.width;
+    }
+
+    if (ctx->media_info.video_stream.height > VIDEO_WIDTH)
+    {
+        rt_kprintf("3\n");
+        ctx->disp_rect.y = 0;
+        ctx->disp_rect.height = VIDEO_WIDTH;
+    }
+    else
+    {
+        rt_kprintf("4\n");
+        ctx->disp_rect.y = (ctx->screen_size.height - ctx->media_info.video_stream.height) / 2;
+        ctx->disp_rect.height = ctx->media_info.video_stream.height;
+    }
+    if (hengping)
+    {
+        // ctx->disp_rect.x += ctx->disp_rect.x;
+
+        ctx->disp_rect.x = 0;
+        ctx->disp_rect.y = 0;
+        ctx->disp_rect.width = 1024;
+        ctx->disp_rect.height = 768;
+
+        if (MY_SET_IMAGE.image == IMAGE_C201_hor || MY_SET_IMAGE.image == IMAGE_C202_hor)
+        {
+            ctx->disp_rect.x = 306;
+            ctx->disp_rect.y = 125;
+            ctx->disp_rect.width = 700;
+            ctx->disp_rect.height = 520;
+        }
+        else if (MY_SET_IMAGE.image == IMAGE_C404_hor)
+        {
+            ctx->disp_rect.x = 257;
+            ctx->disp_rect.y = 165;
+            ctx->disp_rect.width = 777;
+            ctx->disp_rect.height = 440;
+        }
+    }
+    else
+    {
+        // ctx->disp_rect.x = (1024 - ctx->disp_rect.height) / 2;
+        // ctx->disp_rect.y = (768 - ctx->disp_rect.width) / 2;
+        ctx->disp_rect.x = 0;
+        ctx->disp_rect.y = 0;
+        ctx->disp_rect.width = 1024;
+        ctx->disp_rect.height = 768;
+
+        if (MY_SET_IMAGE.image == IMAGE_C404_ver)
+        {
+            ctx->disp_rect.x = 31;
+            ctx->disp_rect.y = 0;
+            ctx->disp_rect.width = 437;
+            ctx->disp_rect.height = 768;
+        }
+
+        aic_player_set_rotation(ctx->player, MPP_ROTATION_90);
+    }
+
+    printf("Media size %d x %d, Display offset (%d, %d) size %d x %d\n",
+           ctx->media_info.video_stream.width, ctx->media_info.video_stream.height,
+           ctx->disp_rect.x, ctx->disp_rect.y, ctx->disp_rect.width, ctx->disp_rect.height);
+
+    ret = aic_player_set_disp_rect(ctx->player, &ctx->disp_rect);
+    if (ret != 0)
+    {
+        printf("aic_player_set_disp_rect error\n");
+        return -1;
+    }
+    return ret;
+}
+
+// 事件处理回调函数，目前主要处理播放结束事件，更新相关标志位
+static s32 event_handle(void *app_data, s32 event, s32 data1, s32 data2)
+{
+    int ret = 0;
+    struct lvgl_player_context *ctx = (struct lvgl_player_context *)app_data;
+
+    switch (event)
+    {
+    case AIC_PLAYER_EVENT_PLAY_END:
+        rt_kprintf("Play end\n");
+        ctx->player_end = 1;
+        video_continue_flag = true;
+        if(page_avi_update_flag[update_page_num] && !elevator_video_flag)
+        {
+            video_renew_flag = true;
+        }
+        if (elevator_video_flag)
+        {
+            elevator_video_flag = false;
+            play_ok_delect_video_flag = true;
+        }
+        break;
+    default:
+        break;
+    }
+    return ret;
+}
+//设置音量
+void video_set_volume(rt_uint16_t vol)
+{
+    aic_player_set_volum(my_lvgl_player_ctx.player, vol);
+}
+
+// 播放函数，设置要播放的文件、准备、获取媒体信息、设置显示区域并开始播放
+int lvgl_play(struct lvgl_player_context *ctx)
+{
+    int ret = 0;
+
+    if (video_select == VIDEO_FIRE)
+    {
+        elevator_video_flag = true;
+        if (hengping)
+            aic_player_set_uri(ctx->player, LVGL_FILE_LIST_PATH(fire_hor.mp4));
+        else
+            aic_player_set_uri(ctx->player, LVGL_FILE_LIST_PATH(fire_ver.mp4));
+    }
+    else if (video_select == VIDEO_RESET_APPEASE)
+    {
+        elevator_video_flag = true;
+        if (hengping)
+            aic_player_set_uri(ctx->player, LVGL_FILE_LIST_PATH(anfu_hor.mp4));
+        else
+            aic_player_set_uri(ctx->player, LVGL_FILE_LIST_PATH(anfu_ver.mp4));
+    }
+    else if (video_select == VIDEO_RESET_HELP_APPEASE)
+    {
+        elevator_video_flag = true;
+        if (hengping)
+            aic_player_set_uri(ctx->player, LVGL_FILE_LIST_PATH(anfu_help_hor.mp4));
+        else
+            aic_player_set_uri(ctx->player, LVGL_FILE_LIST_PATH(anfu_help_ver.mp4));
+    }
+    else if (video_select == VIDEO_RESET_END_APPEASE)
+    {
+        elevator_video_flag = true;
+        if (hengping)
+            aic_player_set_uri(ctx->player, LVGL_FILE_LIST_PATH(anfu_end_hor.mp4));
+        else
+            aic_player_set_uri(ctx->player, LVGL_FILE_LIST_PATH(anfu_end_ver.mp4));
+    }
+    else if (video_select == VIDEO_OVERLOAD)
+    {
+        elevator_video_flag = true;
+        if (hengping)
+            aic_player_set_uri(ctx->player, LVGL_FILE_LIST_PATH(overload_hor.mp4));
+        else
+            aic_player_set_uri(ctx->player, LVGL_FILE_LIST_PATH(overload_ver.mp4));
+    }else if(video_select == VIDEO_UP_OBS)
+    {
+        elevator_video_flag = true;
+        if (hengping)
+            aic_player_set_uri(ctx->player, LVGL_FILE_LIST_PATH(up_hor.mp4));
+        else
+            aic_player_set_uri(ctx->player, LVGL_FILE_LIST_PATH(up_ver.mp4));
+    }else if(video_select == VIDEO_DOWN_OBS)
+    {
+        elevator_video_flag = true;
+        if (hengping)
+            aic_player_set_uri(ctx->player, LVGL_FILE_LIST_PATH(down_hor.mp4));
+        else
+            aic_player_set_uri(ctx->player, LVGL_FILE_LIST_PATH(down_ver.mp4));
+    }
+    else if(MY_SET_IMAGE.image == IMAGE_C301_hor)
+        aic_player_set_uri(ctx->player, g_filename[0]);
+    else if(MY_SET_IMAGE.image == IMAGE_C302_hor)
+        aic_player_set_uri(ctx->player, g_filename[1]);
+    else if(MY_SET_IMAGE.image == IMAGE_C303_hor)
+        aic_player_set_uri(ctx->player, g_filename[2]);
+    else if (page_update_flag[update_page_num])
+        aic_player_set_uri(ctx->player, video_path[update_page_num]);
+    else if (page_avi_update_flag[update_page_num])
+        aic_player_set_uri(ctx->player, video_avi_path[update_page_num]);
+    else
+        aic_player_set_uri(ctx->player, g_filename[4]);
+
+    ctx->sync_flag = AIC_PLAYER_PREPARE_SYNC;
+    if (ctx->sync_flag == AIC_PLAYER_PREPARE_ASYNC)
+    {
+        ret = aic_player_prepare_async(ctx->player);
+    }
+    else
+    {
+        ret = aic_player_prepare_sync(ctx->player);
+    }
+    if (ret)
+    {
+        return -1;
+    }
+    if (ctx->sync_flag == AIC_PLAYER_PREPARE_SYNC)
+    {
+        ret = aic_player_get_media_info(ctx->player, &ctx->media_info);
+        if (ret != 0)
+        {
+            rt_kprintf("aic_player_get_media_info error\n");
+            return -1;
+        }
+        ret = aic_player_start(ctx->player);
+        if (ret != 0)
+        {
+            rt_kprintf("aic_player_start error\n");
+            return -1;
+        }
+        ret = set_disp_rect(ctx);
+        if (ret != 0)
+        {
+            rt_kprintf("set_disp_rect error\n");
+            return -1;
+        }
+        ret = aic_player_play(ctx->player);
+        if (ret != 0)
+        {
+            rt_kprintf("aic_player_play error\n");
+            return -1;
+        }
+    }
+    return 0;
+}
+
+// 暂停和恢复播放视频文件sadf
+static int lvgl_pause(struct lvgl_player_context *ctx)
+{
+    return aic_player_pause(ctx->player);
+}
+
+int lvgl_stop(struct lvgl_player_context *ctx)
+{
+    return aic_player_stop(ctx->player);
+}
+// 播放下一个视频文件函数
+int lvgl_play_next(struct lvgl_player_context *ctx)
+{
+    ctx->file_index++;
+    ctx->file_index = (ctx->file_index > ctx->file_cnt - 1) ? 0 : ctx->file_index;
+    lvgl_stop(ctx);
+    if (lvgl_play(ctx) != 0)
+    {
+        return -1;
+    }
+    return 0;
+}
+
+// 创建播放器的函数，初始化播放器实例、设置相关参数、注册事件回调函数
+void create_player()
+{
+    memset(&my_lvgl_player_ctx, 0x00, sizeof(struct lvgl_player_context));
+    // lv_memset_00(&my_lvgl_player_ctx, sizeof(struct lvgl_player_context));
+    my_lvgl_player_ctx.player = aic_player_create(NULL);
+    if (my_lvgl_player_ctx.player == NULL)
+    {
+        rt_kprintf("视频创建失败，重启系统\n");
+        // 调用重启系统函数（需根据实际系统环境实现）
+        wdt_immediate_reset();
+        return;
+    }
+    rt_kprintf("视频播放器创建成功\n");
+    // my_lvgl_player_ctx.file_cnt = sizeof(g_filename) / sizeof(g_filename[0]);
+    my_lvgl_player_ctx.file_cnt = 1;
+    my_lvgl_player_ctx.file_index = 0;
+    my_lvgl_player_ctx.player_state = LVGL_PLAYER_STATE_STOP;
+    aic_player_set_event_callback(my_lvgl_player_ctx.player, &my_lvgl_player_ctx, event_handle);
+    if (lvgl_play_next(&my_lvgl_player_ctx) != 0)
+    { // if play fail,it is considered play finsh.play the next one
+        my_lvgl_player_ctx.player_state = LVGL_PLAYER_STATE_STOP;
+        my_lvgl_player_ctx.player_end = 1;
+    }
+    else
+    {
+        my_lvgl_player_ctx.player_state = LVGL_PLAYER_STATE_PLAY;
+        my_lvgl_player_ctx.player_end = 0;
+    }
+}
+
+// 增加静态变量保存图层原始alpha配置
+static struct aicfb_alpha_config ui_alpha_bak = {0};
+static struct aicfb_alpha_config video_alpha_bak = {0};
+static bool alpha_saved = false;
+
+void video_init(bool play, uint8_t select)
+{
+    rt_device_t render_dev = RT_NULL;
+    struct aicfb_alpha_config alpha = {0};
+
+    render_dev = rt_device_find("aicfb");
+    if (!render_dev)
+    {
+        rt_kprintf("rt_device_find aicfb failed!");
+        return;
+    }
+
+    // 首次运行时保存原始alpha配置
+    if (!alpha_saved)
+    {
+        ui_alpha_bak.layer_id = AICFB_LAYER_TYPE_UI;
+        rt_device_control(render_dev, AICFB_GET_ALPHA_CONFIG, &ui_alpha_bak);
+
+        video_alpha_bak.layer_id = AICFB_LAYER_TYPE_VIDEO;
+        rt_device_control(render_dev, AICFB_GET_ALPHA_CONFIG, &video_alpha_bak);
+
+        alpha_saved = true;
+    }
+
+    // UI层显示在视频层之上 (select=0)
+    if (select == 0)
+    {
+        // 恢复UI层原始配置
+        rt_device_control(render_dev, AICFB_UPDATE_ALPHA_CONFIG, &ui_alpha_bak);
+
+        // 设置视频层alpha
+        alpha.layer_id = AICFB_LAYER_TYPE_VIDEO;
+        alpha.enable = 1;
+        alpha.mode = 1;
+        alpha.value = play ? 255 : 0;
+        rt_device_control(render_dev, AICFB_UPDATE_ALPHA_CONFIG, &alpha);
+    }
+    // 只显示视频层 (select=1)
+    else if (select == 1)
+    {
+        // 恢复视频层原始配置
+        rt_device_control(render_dev, AICFB_UPDATE_ALPHA_CONFIG, &video_alpha_bak);
+
+        // 设置UI层alpha
+        alpha.layer_id = AICFB_LAYER_TYPE_UI;
+        alpha.enable = 1;
+        alpha.mode = 1;
+        alpha.value = play ? 0 : 255;
+        rt_device_control(render_dev, AICFB_UPDATE_ALPHA_CONFIG, &alpha);
+    }
+
+    // 初始化播放器
+    if (create_player_flag)
+    {
+        create_player();
+        create_player_flag = false;
+    }
+}
+
+// 销毁播放器函数
+void destroy_player(uint8_t printf_text)
+{
+    printf_text -= 1;
+    // 定义提示文本数组
+    const char *log_text[] = {"切换模式", "更新视频", "电梯状态", "定位失败", "节能模式", "无视频文件"};
+
+    struct lvgl_player_context *ctx = &my_lvgl_player_ctx;
+    if (ctx->player != NULL)
+    {
+        int state = aic_player_destroy(ctx->player);
+        if (state == 0)
+        {
+            // 确保索引在有效范围内
+            if (printf_text < sizeof(log_text) / sizeof(log_text[0]))
+            {
+                rt_kprintf("视频播放器器销毁成功[%s]\n", log_text[printf_text]);
+            }
+            else
+            {
+                rt_kprintf("视频播放器销毁成功[未知操作]\n");
+            }
+
+            ctx->player = NULL;
+            init_video_flag = true;
+            create_player_flag = true;
+            if(printf_text != PRINTF_NO_SUPER - 1)
+                video_continue_flag = true;
+        }
+        else
+        {
+            if (printf_text < sizeof(log_text) / sizeof(log_text[0]))
+            {
+                rt_kprintf("视频播放器销毁失败[%s]\n", log_text[printf_text]);
+            }
+            else
+            {
+                rt_kprintf("视频播放器销毁失败[未知操作]\n");
+            }
+            wdt_immediate_reset();
+        }
+        rt_kprintf("视频播放器销毁退出\n");
+    }
+    else
+    {
+        if (printf_text < sizeof(log_text) / sizeof(log_text[0]))
+        {
+            rt_kprintf("播放器未创建，无需销毁[%s]\n", log_text[printf_text]);
+        }
+        else
+        {
+            rt_kprintf("播放器未创建，无需销毁[未知操作]\n");
+        }
+        init_video_flag = true;
+        create_player_flag = true;
+        video_continue_flag = true;
+    }
+}
+//销毁视频播放器，根据video_renew变量判断是否需要销毁播放器实例
+void destroy_video(void)
+{
+    // static bool set_once = false;
+    // if (energy_conservation && !set_once)
+    // {
+    //     set_once = true;
+    //     video_renew = PRINTF_ENERGY;
+    // }
+    // else if (set_once && !energy_conservation)
+    // {
+    //     set_once = false;
+    // }
+    if (video_renew)
+    {
+        destroy_player(video_renew);
+        break_seek_flag = true;     // 跳过seek
+        video_renew = PRINTF_NONE;
+    }
+}
+    static uint8_t set_state = 0;
+    static uint8_t set_state_2 = 0;
+//设置音量
+void set_volume_in_video(uint8_t vol)
+{
+    static bool last_level = false;
+    static uint8_t set_sound_flag = 0;
+    static uint8_t set_cnt = 0;
+
+    video_set_volume(vol);
+    if (vol != 0)
+    {
+        sound_state = PIN_HIGH;
+        Sound_Init(PIN_HIGH);
+    }
+    else
+    {
+        sound_state = PIN_LOW;
+        Sound_Init(PIN_LOW);
+    }
+    // rt_kprintf("Initial volume set to: %d\n", vol);
+}
+//状态视频播放完成后，识别对应音频,销毁播放器实例
+void state_video_end(void)
+{
+    rt_kprintf("视频播放结束，识别对应音频\n");
+    if (fire_start_flag || overload_start_flag ||
+        reset_appease_start_flag || reset_end_appease_start_flag ||
+        reset_help_appease_start_flag || up_obs_start_flag || down_obs_start_flag)
+    {
+        rt_kprintf("开始分辨信号 \n");
+        if (MY_SET.play_mode == PLAY_VIDEO)
+        {
+            if (fire_start_flag && video_select != VIDEO_OVERLOAD)
+            {
+                rt_kprintf("消防pcm\n");
+                fire_start_flag = false;
+                if(!energy_conservation)
+                    fire_music_pcm_flag = true;
+            }
+            else if (reset_appease_start_flag)
+            {
+                rt_kprintf("复位安抚pcm\n");
+                reset_appease_start_flag = false;
+                if(!energy_conservation)
+                    reset_appease_music_pcm_flag = true;
+            }
+            else if (reset_help_appease_start_flag)
+            {
+                rt_kprintf("复位救援平层安抚pcm\n");
+                reset_help_appease_start_flag = false;
+                if(!energy_conservation)
+                    reset_help_appease_music_pcm_flag = true;
+            }
+            else if (reset_end_appease_start_flag)
+            {
+                rt_kprintf("复位结束安抚pcm\n");
+                reset_end_appease_start_flag = false;
+                if(!energy_conservation)
+                    reset_end_appease_music_pcm_flag = true;
+            }
+            else if (overload_start_flag)
+            {
+                rt_kprintf("超载pcm\n");
+                if(!energy_conservation)
+                    overload_music_pcm_flag = true;
+                overload_start_flag = false;
+            }else if(up_obs_start_flag)
+            {
+                rt_kprintf("上行遇阻pcm\n");
+                up_obs_start_flag = false;
+                up_obs_music_pcm_flag = true;
+            }else if(down_obs_start_flag)
+            {
+                rt_kprintf("下行遇阻pcm\n");
+                down_obs_start_flag = false;
+                down_obs_music_pcm_flag = true;
+            }
+        }
+        else
+        {
+            if (fire_start_flag && video_select != VIDEO_OVERLOAD)
+            {
+                rt_kprintf("消防mp3\n");
+                fire_start_flag = false;
+                if(!energy_conservation)
+                    fire_music_mp3_flag = true;
+            }
+            else if (reset_appease_start_flag)
+            {
+                rt_kprintf("复位安抚mp3\n");
+                reset_appease_start_flag = false;
+                if(!energy_conservation)
+                    reset_appease_music_mp3_flag = true;
+            }
+            else if (reset_help_appease_start_flag)
+            {
+                rt_kprintf("复位救援平层安抚mp3\n");
+                reset_help_appease_start_flag = false;
+                if(!energy_conservation)
+                    reset_help_appease_music_mp3_flag = true;
+            }
+            else if (reset_end_appease_start_flag)
+            {
+                rt_kprintf("复位结束安抚mp3\n");
+                reset_end_appease_start_flag = false;
+                if(!energy_conservation)
+                    reset_end_appease_music_mp3_flag = true;
+            }
+            else if (overload_start_flag)
+            {
+                rt_kprintf("超载mp3 1\n");
+                if(!energy_conservation)
+                {
+
+                    overload_music_mp3_flag = true;
+                    rt_kprintf("overload_music_mp3_flag = true;\n");
+                }
+                overload_start_flag = false;
+            }else if(up_obs_start_flag)
+            {
+                rt_kprintf("上行遇阻mp3\n");
+                up_obs_start_flag = false;
+                up_obs_music_mp3_flag = true;
+            }else if(down_obs_start_flag)
+            {
+                rt_kprintf("下行遇阻mp3\n");
+                down_obs_start_flag = false;
+                down_obs_music_mp3_flag = true;
+            }
+        }
+    }
+
+    play_ok_delect_video_flag = false;
+    now_play_video_num = 0;
+    delect_video_flag = false;
+    // image_show_flag = true;
+    state_video_end_flag = true;
+    destroy_player(PRINTF_ELEVTOR);
+
+    video_select = VIDEO_NONE;
+    if (in_reset_cn_flag)
+        in_reset_cn_flag = false;
+    if (in_reset_help_cn_flag)
+        in_reset_help_cn_flag = false;
+    if (in_reset_end_cn_flag)
+        in_reset_end_cn_flag = false;
+    if (in_video_state_flag)
+        in_video_state_flag = false;
+}
+//在u盘更新中，停止播放视频
+void deal_in_update(void)
+{
+    //在u盘更新中，停止播放视频
+    if(video_in_updating && !stop_video_flag)
+    {
+        stop_video_flag = true;
+        video_renew = PRINTF_RENEW;
+    }else if(stop_video_flag && !video_in_updating)
+    {
+        stop_video_flag = false;
+    }
+}
+//销毁播放器实例
+void destroy_player_after_video(bool state)
+{
+    if (state)
+    {
+        delect_video_flag = true;
+        init_video_flag = true;     // 重新初始化视频
+        create_player_flag = true;  // 重新创建播放器
+        video_continue_flag = true; // 继续下次播放
+        break_seek_flag = true;     // 跳过seek
+
+        if (MY_SET.play_mode == PLAY_VIDEO)
+        {
+            destroy_player(PRINTF_ELEVTOR); // 销毁播放器实例
+        }
+        else if (MY_SET.play_mode == PLAY_IMAGE)
+        {
+            music_renew_flag = true; // 删除音乐播放器
+            rt_thread_mdelay(1000);
+        }
+    }
+}
+//继续播放视频
+void continue_play_video(bool state)
+{
+    if (state)
+    {
+        rt_kprintf("进入播放状态，video_continue_flag\n");
+        struct lvgl_player_context *ctx = &my_lvgl_player_ctx;
+        if (init_video_flag)
+        {
+            if (MY_SET_IMAGE.image == IMAGE_C201_hor || MY_SET_IMAGE.image == IMAGE_C202_hor ||
+            MY_SET_IMAGE.image == IMAGE_C404_hor || MY_SET_IMAGE.image == IMAGE_C404_ver)
+                video_init(true, 1);
+            else
+                video_init(true, 0);
+            init_video_flag = false;
+        }
+        video_continue_flag = false;
+    }
+}
+// my_page在主页面，模式为视频模式，则播放视频
+void user_play_video(void)
+{
+    if (init_video_flag)
+    {
+        if (MY_SET_IMAGE.image == IMAGE_C201_hor || MY_SET_IMAGE.image == IMAGE_C202_hor ||
+            MY_SET_IMAGE.image == IMAGE_C404_hor || MY_SET_IMAGE.image == IMAGE_C404_ver)
+            video_init(true, 1);
+        else
+            video_init(true, 0);
+        // rt_thread_mdelay(500);
+        // if(image_show_flag)
+        // {
+        //     image_show_flag = false;
+        // }
+        // rt_thread_mdelay(500);
+        init_video_flag = false;
+    }
+}
+//定位到开头播放视频
+void seek_to_start_play_video(void)
+{
+    struct lvgl_player_context *ctx = &my_lvgl_player_ctx;
+    ctx->player_end = 0;
+    int ret;
+    ret = aic_player_seek(ctx->player, 0);
+    // aic_player_pause(ctx->player);
+    // ret = avi_seek(ctx->player, 0);
+    if (ret == 0)
+    {
+        // aic_player_play(ctx->player);
+        rt_kprintf("seek success\n");
+    }
+    else if (ret == -1)
+    {
+        destroy_player(PRINTF_SEEK);
+    }
+}
+//跳出主页面后销毁播放器实例
+void delect_player_after_home(void)
+{
+    if ((my_page != PAGE_HOME && my_page != PAGE_HOME_HOR) && !init_video_flag)
+    {
+        alpha_saved = false;
+        break_seek_flag = true;         // 跳过seek
+        destroy_player(PRINTF_ELEVTOR); // 销毁播放器实例
+    }
+}
+//初始化视频播放线程
+void video_thread_init(void)
+{
+    while(!init_set_img_ok)
+    {
+        rt_thread_mdelay(200);
+    }
+    while (!music_des_flag)
+    {
+        if (MY_SET.play_mode == PLAY_VIDEO || video_select)
+        {
+            rt_kprintf("video go to 1\n");
+            break;
+        }
+        rt_thread_mdelay(50);
+    }
+
+    // while ((MY_SET.play_mode != PLAY_VIDEO && !video_select) || (my_page != PAGE_HOME && my_page != PAGE_HOME_HOR))
+    while ((MY_SET.play_mode != PLAY_VIDEO && !video_select))
+    {
+        rt_thread_mdelay(50);
+    }
+    rt_kprintf("video go to 2\n");
+    if (!video_select)
+    {
+        while(my_page != PAGE_HOME && my_page != PAGE_HOME_HOR)
+        {
+            rt_thread_mdelay(50);
+        }
+        if (MY_SET_IMAGE.image == IMAGE_C201_hor || MY_SET_IMAGE.image == IMAGE_C202_hor ||
+            MY_SET_IMAGE.image == IMAGE_C404_hor || MY_SET_IMAGE.image == IMAGE_C404_ver)
+        {
+            video_init(true, 1);
+        }
+        else
+        {
+            video_init(true, 0);
+        }
+        rt_thread_mdelay(1000);
+    }
+    else
+        break_seek_flag = true;
+}
+//视频播放线程入口函数
+void video_thread_entry(void *parameter)
+{
+    static bool set_volum_level_flag = false;
+    static uint8_t set_vol_cnt = 0;
+    video_thread_init();
+
+    while (1)
+    {
+        if(set_video_vol_flag)
+        {
+            if(!set_volum_level_flag) rt_kprintf("设置喇叭为高电平\n");
+            set_volum_level_flag = true;
+            rt_thread_delay(100);
+            if(++set_vol_cnt > 10)
+            {
+                set_vol_cnt = 0;
+                set_volum_level_flag = false;
+                set_video_vol_flag = false;
+            }
+            set_volume_in_video(MY_SET.sound);
+        }
+        if ((MY_SET.play_mode == PLAY_VIDEO || video_select) &&
+            !video_in_updating && !play_elevator.elevator_arr &&
+            !play_elevator.elevator_up && !play_elevator.elevator_down)
+        {
+            if(!energy_conservation)
+            {
+                if(set_state != 2 || set_vol_flag)
+                {
+                    set_vol_flag = false;
+                    set_state = 2;
+                    set_volume_in_video(MY_SET.sound);
+                }
+            }
+            else
+            {
+                if(set_state != 1)
+                {
+                    set_state = 1;
+                    sound_state = PIN_LOW;
+                    Sound_Init(PIN_LOW);
+                }
+            }
+        }
+        if (!video_select && !video_in_updating && !have_overload_flag)
+        {
+            // 如果没有电梯状态信号,播放默认视频或者更新后的视频
+            uint8_t play_en = video_continue_flag && MY_SET.play_mode == PLAY_VIDEO &&
+                        ((my_page == PAGE_HOME || my_page == PAGE_HOME_HOR));
+            if (play_en)
+            {
+                video_continue_flag = false;
+                //my_page在主页面，模式为视频模式，则播放视频
+                user_play_video();
+                if(!page_avi_update_flag[update_page_num])
+                {
+                    if (break_seek_flag)
+                    {
+                        break_seek_flag = false;
+                        rt_kprintf("第一次播放视频，跳过seek\n");
+                        continue;
+                    }
+                    //定位到开头播放视频
+                    seek_to_start_play_video();
+                }
+            }
+            //退出主页面后销毁播放器实例
+            delect_player_after_home();
+        }
+        //在u盘更新中，停止播放视频
+        deal_in_update();
+        if (play_ok_delect_video_flag)
+        {
+            //状态视频播放完成后，识别对应音频,销毁播放器实例
+            state_video_end();
+        }
+        else if (video_select && (!energy_conservation ||
+        video_select == VIDEO_FIRE || video_select == VIDEO_OVERLOAD ||
+        video_select == VIDEO_RESET_END_APPEASE || video_select == VIDEO_RESET_HELP_APPEASE ||
+        video_select == VIDEO_RESET_APPEASE)) // 播放状态视频
+        {
+            //销毁播放器实例
+            destroy_player_after_video(!delect_video_flag);
+            //继续播放视频
+            continue_play_video(video_continue_flag);
+        }
+        if(video_select && my_page != PAGE_HOME && my_page != PAGE_HOME_HOR)
+        {
+            destroy_player(PRINTF_ELEVTOR);
+            break_seek_flag = true;     // 跳过seek
+            video_renew = PRINTF_NONE;
+        }
+        if(video_renew_flag && (my_page == PAGE_HOME || my_page == PAGE_HOME_HOR))
+        {
+            video_renew_flag = false;
+            destroy_player(PRINTF_ELEVTOR);
+            break_seek_flag = true;     // 跳过seek
+            video_renew = PRINTF_NONE;
+        }
+        //销毁视频播放器，根据video_renew变量判断是否需要销毁播放器实例
+        destroy_video();
+        if(video_no_super_flag)
+        {
+            page_avi_update_flag[update_page_num] = false;
+            show_video_label_flag = true;
+            destroy_player(PRINTF_NO_SUPER);
+            break_seek_flag = true;     // 跳过seek
+            video_renew = PRINTF_NONE;
+            rt_kprintf("视频不支持,暂停视频\n");
+            video_no_super_flag = false;
+            save_begin();
+        }
+        rt_thread_mdelay(50);
+    }
+}

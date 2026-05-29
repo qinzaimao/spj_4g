@@ -1,0 +1,1 @@
+GEN_CSRCS += lv_font_Dengb_24.c lv_font_Dengb_16.c lv_font_Dengb_12.c lv_font_Dengb_26.c lv_font_Dengb_30.c
