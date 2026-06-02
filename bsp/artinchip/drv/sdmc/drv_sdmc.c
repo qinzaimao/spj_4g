@@ -210,11 +210,11 @@ static void aic_sdmc_request(struct rt_mmcsd_host *rthost,
     #ifdef AIC_SDMC_IRQ_MODE    /* SDIO card always enable AIC_SDMC_IRQ_MODE */
         host->fifo_mode = 0;
     #else
-    host->fifo_mode = 1;
-        // if ((data->blksize * data->blks) < 512)
-        //     host->fifo_mode = 1;
-        // else
-        //     host->fifo_mode = 0;
+    // host->fifo_mode = 1;
+        if ((data->blksize * data->blks) < 1024)
+            host->fifo_mode = 1;
+        else
+            host->fifo_mode = 0;
     #endif
 
         hal_sdmc_set_blk(&host->host, data->blksize, data->blks);
@@ -528,7 +528,7 @@ void aic_sdmc_setup_cfg(struct rt_mmcsd_host *rthost)
     else if (host->pdata->buswidth == SDMC_CTYPE_8BIT)
         rthost->flags |= MMCSD_BUSWIDTH_8;
 
-    rthost->max_seg_size = 4096;
+    rthost->max_seg_size = 1024 * 64;
     rthost->max_dma_segs = 256;
     rthost->max_blk_size = 512;
     rthost->max_blk_count = 65535;

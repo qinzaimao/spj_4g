@@ -151,7 +151,7 @@ SET_TIME_T MY_SET_TIME = {2025, 6, 30, 12, 10, 5}; // 当前时间
 #endif
 //                           选择的图片、     logo、      箭头
 #if MY_USE
-SET_IMAGE_T MY_SET_IMAGE = {IMAGE_C401_ver, LOGO_XIO, ARROW_XIO};
+SET_IMAGE_T MY_SET_IMAGE = {IMAGE_C404_ver, LOGO_XIO, ARROW_XIO};
 #else
 SET_IMAGE_T MY_SET_IMAGE = {IMAGE_C401_ver, LOGO_XIO, ARROW_XIO};
 #endif

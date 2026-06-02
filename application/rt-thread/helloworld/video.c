@@ -638,7 +638,7 @@ void destroy_video(void)
 void set_volume_in_video(uint8_t vol)
 {
     video_set_volume(vol);
-    if (vol != 0)
+    if (vol != 0 && !energy_conservation)
     {
         sound_state = PIN_HIGH;
         Sound_Init(PIN_HIGH);
@@ -647,7 +647,6 @@ void set_volume_in_video(uint8_t vol)
     {
         sound_state = PIN_LOW;
         Sound_Init(PIN_LOW);
-        rt_kprintf("[video]: 静音\n");
     }
 }
 
@@ -965,10 +964,10 @@ void video_thread_entry(void *parameter)
             uint8_t set_vol_cnt_temp = 0;
             if (rt_mutex_take(volume_mutex, RT_TICK_PER_SECOND / 10) == RT_EOK)
             {
-                set_vol_cnt_temp = set_vol_cnt;
+                set_vol_cnt_temp = (++set_vol_cnt);
                 rt_mutex_release(volume_mutex);
             }
-            if (++set_vol_cnt_temp > 5)
+            if (set_vol_cnt_temp > 5)
             {
                 if (rt_mutex_take(volume_mutex, RT_TICK_PER_SECOND / 10) == RT_EOK)
                 {
@@ -1000,6 +999,7 @@ void video_thread_entry(void *parameter)
                 if (set_state != 1)
                 {
                     set_state = 1;
+                    rt_kprintf("[节能模式] 视频静音\n");
                     sound_state = PIN_LOW;
                     Sound_Init(PIN_LOW);
                 }

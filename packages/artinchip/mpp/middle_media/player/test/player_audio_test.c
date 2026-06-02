@@ -704,7 +704,7 @@ static int play_single_audio(struct user_audio_render *p_user_audio_render, uint
         return -1;
     }
 
-    char *audio_buf = mpp_alloc(file_size);
+    char *audio_buf = aicos_malloc(MEM_DEFAULT,file_size);
     if (!audio_buf)
     {
         rt_kprintf("[audio] 错误：无法分配 %d 字节的音频缓冲区\n", file_size);
@@ -723,7 +723,7 @@ static int play_single_audio(struct user_audio_render *p_user_audio_render, uint
     if (reset_audio_renderer(p_user_audio_render) != 0)
     {
         rt_kprintf("[audio] 错误：渲染器状态异常，跳过本次播放\n");
-        mpp_free(audio_buf);
+        aicos_free(MEM_DEFAULT, audio_buf);
         return -1;
     }
 
@@ -749,7 +749,7 @@ static int play_single_audio(struct user_audio_render *p_user_audio_render, uint
     if (ret!= 0)
     {
         rt_kprintf("[audio] 错误：多次尝试播放音频失败\n");
-        mpp_free(audio_buf);
+        aicos_free(MEM_DEFAULT, audio_buf);
         return -1;
     }
 
@@ -769,7 +769,7 @@ static int play_single_audio(struct user_audio_render *p_user_audio_render, uint
     }
 
     // 释放资源
-    mpp_free(audio_buf);
+    aicos_free(MEM_DEFAULT,audio_buf);
     return 0;
 }
 
