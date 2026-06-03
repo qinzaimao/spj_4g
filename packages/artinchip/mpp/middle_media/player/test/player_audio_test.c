@@ -982,9 +982,9 @@ s32 player_audio_render_share_play(uint8_t volume, uint16_t select_play, bool en
     #endif
     select_play = (select_play * 2) - 1;
 
-    rt_mutex_take(elevtor_mutex, RT_WAITING_FOREVER);
-    wait_elevtor_flag = true;
-    rt_mutex_release(elevtor_mutex);
+    // rt_mutex_take(elevtor_mutex, RT_WAITING_FOREVER);
+    // wait_elevtor_flag = true;
+    // rt_mutex_release(elevtor_mutex);
 
     // 函数开头加锁
     rt_mutex_take(audio_mutex, RT_WAITING_FOREVER);
@@ -1164,9 +1164,9 @@ void player_audio_render_destroy()
         memset(&g_user_audio_render.ao_attr, 0, sizeof(struct aic_audio_render_attr));
         memset(&g_user_audio_render.original_ao_attr, 0, sizeof(struct aic_audio_render_attr));
         //  rt_kprintf("[audio] 音频渲染器已销毁，释放音频设备\n");
-        rt_mutex_take(elevtor_mutex, RT_WAITING_FOREVER);
-        wait_elevtor_flag = false;
-        rt_mutex_release(elevtor_mutex);
+        // rt_mutex_take(elevtor_mutex, RT_WAITING_FOREVER);
+        // wait_elevtor_flag = false;
+        // rt_mutex_release(elevtor_mutex);
     }else {
         rt_kprintf("[audio]无法获取音频渲染器\n");
     }
