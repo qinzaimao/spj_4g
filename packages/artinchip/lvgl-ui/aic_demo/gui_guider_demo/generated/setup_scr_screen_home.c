@@ -421,7 +421,6 @@ static void refresh_picture_callback(lv_timer_t *timer)
             // 刷新图片
             if (MY_SET_IMAGE.image == IMAGE_C404_ver)
             {
-                // lv_image_cache_drop(lv_img_get_src(guider_ui.screen_home_img_img));
                 lv_image_cache_drop(lv_img_get_src(guider_ui.screen_home_img_img));
                 lv_img_set_src(guider_ui.screen_home_img_img, current_image_path);
                 lv_image_set_inner_align(guider_ui.screen_home_img_img, LV_IMAGE_ALIGN_STRETCH);
@@ -429,7 +428,6 @@ static void refresh_picture_callback(lv_timer_t *timer)
             }
             else
             {
-                // lv_image_cache_drop(lv_img_get_src(guider_ui.screen_home_img_background));
                 // lv_img_set_src(guider_ui.screen_home_img_background, current_image_path);
                 lv_image_cache_drop(lv_img_get_src(guider_ui.screen_home_img_background));
                 lv_img_set_src(guider_ui.screen_home_img_background, current_image_path);
@@ -949,10 +947,7 @@ static void update_callback(lv_timer_t *timer)
         update_ok_flag = false;
         lv_label_set_text_fmt(guider_ui.screen_home_label_update, "");
     }
-    rt_mutex_take(video_mutex, RT_WAITING_FOREVER);
-    bool home_video_temp = home_video_flag;
-    rt_mutex_release(video_mutex);
-    if(home_video_temp)
+    if(home_video_flag)
     {
 
         lv_timer_pause(frist_timer);
@@ -2542,6 +2537,5 @@ void setup_scr_screen_home(lv_ui *ui)
     home_video_flag = false;
     have_two_video_flag = false;
     rt_mutex_release(video_mutex);
-    // break_uart_flag = true;
     // Update current screen layout.
 }

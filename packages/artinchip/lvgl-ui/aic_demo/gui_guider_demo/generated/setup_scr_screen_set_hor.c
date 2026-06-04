@@ -700,6 +700,7 @@ static void play_event_handler(lv_event_t *e)
             last_mode = 2;
         }
         page_play_mode[txt_update_page_num] = true;
+        page_set_play_mode[txt_update_page_num] = MY_SET.play_mode;
         save_begin();
     }
 }
@@ -3854,9 +3855,6 @@ void setup_scr_screen_set_hor(lv_ui *ui)
     my_page = PAGE_SET_HOR;
     frist_set_time_flag = true;
     home_hor_video_flag = false;
-    rt_mutex_take(elevtor_mutex, RT_WAITING_FOREVER);
-    need_to_play_video_flag = false;
-    rt_mutex_release(elevtor_mutex);
     send_version_query();
 }
 

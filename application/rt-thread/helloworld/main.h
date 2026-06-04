@@ -114,8 +114,8 @@ typedef struct {
 }image_num_pos_t;
 
 extern image_num_pos_t image_num_pos[3];
-extern volatile bool image_show_flag, energy_show_image_flag, video_in_updating;
-extern volatile bool init_set_img_ok, break_uart_flag;
+extern volatile bool energy_show_image_flag, video_in_updating;
+extern volatile bool init_set_img_ok;
 extern volatile bool home_hor_delete_flag, home_delete_flag;
 extern volatile bool init_video_flag;
 extern volatile bool have_two_video_flag;
@@ -127,7 +127,7 @@ extern volatile rt_tick_t video_wait_time;           // 重新初始化视频状
 
 #define UP_ARROW 2
 #define DOWN_ARROW 1
-extern volatile uint8_t arrow_num, set_gif_arrow, play_image_num;
+extern volatile uint8_t arrow_num, set_gif_arrow;
 /*********************变量部分******************************/
 #define SOUND_HIGH true
 #define SOUND_LOW false
@@ -147,13 +147,13 @@ extern cnt_t my_cnt;
 extern weather_t my_weather;
 extern volatile bool in_update_video_flag,update_video_type_erro_flag;
 extern volatile bool home_hor_video_flag, home_video_flag;
-extern volatile bool video_no_super_flag, show_video_label_flag;
+extern volatile bool show_video_label_flag;
 extern volatile bool in_play_overload_music, wait_overload_mp3_flag;
 extern volatile bool set_vol_flag, set_video_vol_flag, wait_overload_flag, wait_overload_cnt_flag;
 extern volatile bool video_continue_flag, show_floor_flag;     //视频继续播放
-extern volatile bool wait_fire_play_flag, in_play_mp3_flag;
+extern volatile bool wait_fire_play_flag;
 extern volatile bool delete_over_flag;     //视频继续播放
-extern volatile bool video_defuat_flag, save_flag, frist_set_time_flag, sound_state, restart_music_flag, music_des_flag, io_state_flag[19];
+extern volatile bool save_flag, frist_set_time_flag, sound_state, restart_music_flag, music_des_flag, io_state_flag[19];
 extern volatile uint8_t save_img_page;
 extern volatile uint8_t set_vol_cnt;
 extern char *image_flash_path_prefix[11],  *txt_path[14];
@@ -163,6 +163,7 @@ extern volatile uint8_t show_floor_num[3], have_floor_num, need_send_data;
 extern volatile uint8_t update_page_num, txt_update_page_num;
 extern volatile uint8_t page_image_cnt[11];
 extern volatile bool have_txt_flag[14], txt_mode[14], page_play_mode[14];
+extern volatile uint8_t page_set_play_mode[14];
 extern volatile bool page_avi_update_flag[3][11], page_mp4_update_flag[3][11];
 extern volatile bool txt_renew_flag;
 extern volatile bool wait_arr_flag;
@@ -170,7 +171,6 @@ extern volatile uint8_t wait_arr_cnt;
 extern char update_txt_content[800];
 extern volatile int current_media_idx, media_count, usb_image_cnt;
 extern volatile int video_num;
-extern volatile uint16_t weather_select;
 extern volatile uint32_t accumulated_seconds;
 
 
@@ -294,7 +294,6 @@ extern city_t my_city_3_en[400];
 
 extern char *city_code[][25];
 
-extern volatile bool set_city_ok_flag;
 extern char city_name_str[32];
 extern char city_code_str[32];
 extern char *city_province;

@@ -442,7 +442,6 @@ s32 aic_player_start_video(struct aic_player *player)
                                               &video_port_format)) {
             mm_param_skip_track skip_track;
             loge("MM_INDEX_PARAM_VIDEO_PORT_FORMAT Error!!!!.\n");
-            // video_no_super_flag = true;
             skip_track.port_index = DEMUX_PORT_VIDEO_INDEX;
             mm_set_parameter(player->demuxer_handle,
                              MM_INDEX_VENDOR_DEMUXER_SKIP_TRACK, &skip_track);

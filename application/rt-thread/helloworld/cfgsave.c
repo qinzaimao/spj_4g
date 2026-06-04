@@ -15,7 +15,7 @@ void cfgSave()
     // rt_kprintf("config save.....\n");
     buff[2] = MY_SET.sound;
     buff[3] = MY_SET.backlight;
-    buff[4] = video_defuat_flag;
+
     buff[5] = voice_language;
     buff[6] = image_have_cnt;
     buff[7] = (MY_SET_TIME.year % 2000);
@@ -245,9 +245,21 @@ void cfgSave()
     buff[213] = page_mp4_update_flag[2][9];
     buff[214] = page_mp4_update_flag[2][10];
     buff[215] = save_img_page;
-    // buff[103] = my_weather.temperature;
-    // buff[104] = (char)(my_weather.weather & 0xFF);  // 保存低8位
-    // buff[105] = (char)((my_weather.weather >> 8) & 0xFF);  // 保存高8位
+
+    buff[216] = page_set_play_mode[0];
+    buff[217] = page_set_play_mode[1];
+    buff[218] = page_set_play_mode[2];
+    buff[219] = page_set_play_mode[3];
+    buff[220] = page_set_play_mode[4];
+    buff[221] = page_set_play_mode[5];
+    buff[222] = page_set_play_mode[6];
+    buff[223] = page_set_play_mode[7];
+    buff[224] = page_set_play_mode[8];
+    buff[225] = page_set_play_mode[9];
+    buff[226] = page_set_play_mode[10];
+    buff[227] = page_set_play_mode[11];
+    buff[228] = page_set_play_mode[12];
+    buff[229] = page_set_play_mode[13];
 
     fwrite(buff, 2, save_byte, cfgfile);
     fclose(cfgfile);
@@ -279,7 +291,7 @@ void cfgRead()
         // 从文件加载配置
         MY_SET.sound = buff[2];
         MY_SET.backlight = buff[3];
-        video_defuat_flag = buff[4];
+
         voice_language = buff[5];
         image_have_cnt = buff[6];
         MY_SET_TIME.year = buff[7] + 2000;
@@ -503,6 +515,22 @@ void cfgRead()
         page_mp4_update_flag[2][9] = buff[213];
         page_mp4_update_flag[2][10] = buff[214];
         save_img_page = buff[215];
+
+        page_set_play_mode[0] = buff[216];
+        page_set_play_mode[1] = buff[217];
+        page_set_play_mode[2] = buff[218];
+        page_set_play_mode[3] = buff[219];
+        page_set_play_mode[4] = buff[220];
+        page_set_play_mode[5] = buff[221];
+        page_set_play_mode[6] = buff[222];
+        page_set_play_mode[7] = buff[223];
+        page_set_play_mode[8] = buff[224];
+        page_set_play_mode[9] = buff[225];
+        page_set_play_mode[10] = buff[226];
+        page_set_play_mode[11] = buff[227];
+        page_set_play_mode[12] = buff[228];
+        page_set_play_mode[13] = buff[229];
+
         // my_weather.temperature = buff[103];
         // my_weather.temperature = buff[103];
         // my_weather.weather = ((uint16_t)buff[105] << 8) | (uint16_t)buff[104];
@@ -541,16 +569,6 @@ void cfgsave_thread_entry(void *parameter)
                 last_save_num = save_num;
             }
         }
-
-        // if(need_to_play_next_video)
-        // {
-        //     rt_tick_t now_time = rt_tick_get();
-        //     if (now_time - video_wait_time > 8000)
-        //     {
-        //         rt_kprintf("多个视频时需要销毁超过8秒,重启视频线程\n");
-        //         restart_video_thread();
-        //     }
-        // }
 
         rt_thread_mdelay(500);
     }

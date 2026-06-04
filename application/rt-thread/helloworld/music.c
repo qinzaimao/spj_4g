@@ -647,7 +647,6 @@ void user_play_state_1(bool state)
 {
     if (state)
     {
-        in_play_mp3_flag = true;
         // rt_kprintf("开始播放电梯对应状态语音 in 1\n");
         play_ok_cnt++;
         // rt_kprintf("play_ok_cnt = %d\n", play_ok_cnt);
@@ -825,7 +824,6 @@ void user_play_state_2(bool state)
 {
     if (state)
     {
-        in_play_mp3_flag = true;
         rt_kprintf("开始播放电梯对应状态语音 in 2\n");
 
         if (fire_music_mp3_flag && MY_VOICE_SWITCH.fire)
@@ -1734,13 +1732,12 @@ void music_thread_entry(void *parameter)
                 }
                 else if (arr_mp3_flag)
                 {
-                    in_play_mp3_flag = true;
                     //播放到站和楼层语音
                     user_play_state_arr();
                 }
                 else if (last_state2_num == 6)
                 {
-                    in_play_mp3_flag = true;
+
                     //播放蜂鸣器音乐
                     user_play_state_buzz();
                 }
@@ -1748,7 +1745,7 @@ void music_thread_entry(void *parameter)
                 {
                     //播放背景音乐
                     user_play_state_bg();
-                    in_play_mp3_flag = false;
+
                 }
                 else if(!(music_state[0] || music_state[1] || music_state[2]))
                 {
@@ -1757,7 +1754,7 @@ void music_thread_entry(void *parameter)
 
                     // rt_kprintf("[music]:PIN LOW 1\n") ;
                 }
-                else in_play_mp3_flag = false;
+
                 // 处理电梯状态相关的语音播放逻辑结束
                 user_clear_play_flag();
             }

@@ -427,6 +427,12 @@ int lvgl_stop(struct lvgl_player_context *ctx)
         return -1;
     }
 
+    // 仅停止视频，不操作音频销毁
+    rt_mutex_take(elevtor_mutex, RT_WAITING_FOREVER);
+    bool wait_elevator_temp = wait_elevtor_flag;
+    rt_mutex_release(elevtor_mutex);
+    if(wait_elevator_temp) return -1;
+
     int ret = aic_player_stop(ctx->player);
 
     // ✅ 新增：重置播放状态和结束标志
@@ -552,6 +558,15 @@ int destroy_player(uint8_t printf_text)
         rt_mutex_release(video_mutex);
         return 0;
     }
+    while(1)
+    {
+        rt_mutex_take(elevtor_mutex, RT_WAITING_FOREVER);
+        bool wait_elevator_temp = wait_elevtor_flag;
+        rt_mutex_release(elevtor_mutex);
+
+        if(!wait_elevator_temp) break;
+        rt_thread_mdelay(50);
+    }
     int state = aic_player_destroy(ctx->player);
     if (state == 0)
     {
@@ -589,13 +604,17 @@ void destroy_video(void)
     }
 
     uint8_t current_renew;
+    bool audio_render_active;
 
     rt_mutex_take(video_mutex, RT_WAITING_FOREVER);
     current_renew = video_renew;
     rt_mutex_release(video_mutex);
 
+    rt_mutex_take(elevtor_mutex, RT_WAITING_FOREVER);
+    audio_render_active = wait_elevtor_flag;
+    rt_mutex_release(elevtor_mutex);
 
-    if (current_renew != PRINTF_NONE)
+    if (current_renew != PRINTF_NONE && !audio_render_active)
     {
         destroy_player(current_renew);
 
@@ -779,8 +798,11 @@ void user_play_video(void)
     rt_mutex_take(audio_mutex, RT_WAITING_FOREVER);
     need_init = init_video_flag;
     rt_mutex_release(audio_mutex);
+    rt_mutex_take(elevtor_mutex, RT_WAITING_FOREVER);
+    bool user_wait_elevator_temp = wait_elevtor_flag;
+    rt_mutex_release(elevtor_mutex);
 
-    if (need_init)
+    if (need_init && !user_wait_elevator_temp)
     {
         if (MY_SET_IMAGE.image == IMAGE_C201_hor || MY_SET_IMAGE.image == IMAGE_C202_hor ||
             MY_SET_IMAGE.image == IMAGE_C404_hor || MY_SET_IMAGE.image == IMAGE_C404_ver)
@@ -995,8 +1017,9 @@ void video_thread_entry(void *parameter)
             // ======================
             if (is_multi_video) {
                 // 多视频：等待电梯音频播放完毕
-                play_en = (continue_play && MY_SET.play_mode == PLAY_VIDEO
-                     && (my_page == PAGE_HOME || my_page == PAGE_HOME_HOR));
+                play_en = (continue_play && MY_SET.play_mode == PLAY_VIDEO &&
+                    !wait_elevtor_flag &&
+                    (my_page == PAGE_HOME || my_page == PAGE_HOME_HOR));
             } else {
                 // 单个视频：直接播放，不等待任何音频
                 play_en = (continue_play && MY_SET.play_mode == PLAY_VIDEO &&
@@ -1015,7 +1038,17 @@ void video_thread_entry(void *parameter)
                 // 多视频直接切下一个，不结束、不销毁
                 if (have_two_temp)
                 {
+                    rt_kprintf("[多视频] 等待电梯音频播放完毕\n");
+                    // 🔴 修复：循环检查电梯标志，直到音频播放结束
+                    while(1)
+                    {
+                        rt_mutex_take(elevtor_mutex, RT_WAITING_FOREVER);
+                        bool wait_elevator_temp = wait_elevtor_flag;
+                        rt_mutex_release(elevtor_mutex);
 
+                        if(!wait_elevator_temp) break;
+                        rt_thread_mdelay(50);
+                    }
                     rt_kprintf("[多视频] 电梯音频播放完毕，开始切换\n");
                     lvgl_stop(&my_lvgl_player_ctx);
                     rt_kprintf("stop ok\n");
@@ -1101,14 +1134,25 @@ void video_thread_entry(void *parameter)
         // ========== 关键修复：多视频直接屏蔽5秒超时重启 ==========
         if (!video_select && MY_SET.play_mode == PLAY_VIDEO && !video_in_updating)
         {
+            bool audio_occupied;
             rt_tick_t current_tick;
             rt_mutex_take(video_mutex, RT_WAITING_FOREVER);
             current_tick = last_play_tick;
             rt_mutex_release(video_mutex);
 
-
+            rt_mutex_take(elevtor_mutex, RT_WAITING_FOREVER);
+            audio_occupied = wait_elevtor_flag;
+            rt_mutex_release(elevtor_mutex);
+            // 无任何限制：单视频/多视频，只要卡住5秒，强制重启
+             // 🔴 新增：音频被占用时，更新last_play_tick，避免超时
+            if(audio_occupied)
+            {
+                rt_mutex_take(video_mutex, RT_WAITING_FOREVER);
+                last_play_tick = rt_tick_get();
+                rt_mutex_release(video_mutex);
+            }
             // 只有音频空闲时才检查超时
-            if (current_tick != 0)
+            else if (current_tick != 0)
             {
                 rt_tick_t now = rt_tick_get();
                 if (now - current_tick > VIDEO_TIMEOUT_TICK)

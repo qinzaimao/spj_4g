@@ -1219,10 +1219,8 @@ static void update_callback(lv_timer_t *timer)
         update_ok_flag = false;
         lv_label_set_text_fmt(guider_ui.screen_home_hor_label_update, "");
     }
-    rt_mutex_take(video_mutex, RT_WAITING_FOREVER);
-    bool home_hor_video_temp = home_hor_video_flag;
-    rt_mutex_release(video_mutex);
-    if(home_hor_video_temp)
+
+    if(home_hor_video_flag)
     {
         lv_timer_pause(frist_hor_timer);
         lv_timer_pause(update_hor_timer);
@@ -3738,7 +3736,6 @@ void setup_scr_screen_home_hor(lv_ui *ui)
     home_hor_video_flag = false;
     have_two_video_flag = false;
     rt_mutex_release(video_mutex);
-    // break_uart_flag = true;
             // rt_kprintf("play_elevator.video_overload = %d\n", play_elevator.video_overload);
             // rt_kprintf("wait_overload_mp3_flag = %d\n", wait_overload_mp3_flag);
             // rt_kprintf("wait_overload_cnt_flag = %d\n", wait_overload_cnt_flag);

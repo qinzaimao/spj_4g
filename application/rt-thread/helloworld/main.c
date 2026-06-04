@@ -35,8 +35,6 @@ volatile bool change_weather_flag = false; // 更新天气图标标志
 volatile bool weather_erro_flag = false; // 更新天气图标标志
 /*********************主页面部分******************************/
 image_num_pos_t image_num_pos[3] = {{0, 0}, {0, 0}, {0, 0}}; //记录楼层图片位置
-volatile bool image_show_flag = false;                      //当视频播放完毕后，图片显示一下标志
-volatile bool break_uart_flag = false;                      // 视频正在更新
 volatile bool init_set_img_ok = false;                      // 视频正在更新
 volatile bool video_in_updating = false;                      // 视频正在更新
 volatile bool energy_show_image_flag = false;                //节能模式图片显示标志
@@ -52,7 +50,7 @@ volatile rt_tick_t video_wait_time = 0;           // 重新初始化视频状态
 volatile uint8_t set_vol_cnt = 0;
 volatile uint8_t arrow_num = 0;                              // 箭头执行方案
 volatile uint8_t set_gif_arrow = 10;                          // 设置gif播放方向
-volatile uint8_t play_image_num = 0;                          // 设置gif播放方向
+
 /*********************变量部分******************************/
 
 volatile bool in_update_video_flag = false;            // 设置音量标志
@@ -62,7 +60,6 @@ volatile bool home_hor_video_flag = false;            // 设置音量标志
 volatile bool home_video_flag = false;            // 设置音量标志
 
 volatile bool set_vol_flag = false;            // 设置音量标志
-volatile bool video_no_super_flag = false;            // 视频不支持标志
 volatile bool show_video_label_flag = false;            // 视频不支持标志
 volatile bool in_play_overload_music = false;            // 设置音量标志
 volatile bool wait_overload_flag = false;            // 设置音量标志
@@ -72,11 +69,9 @@ volatile bool set_video_vol_flag = false;            // 设置音量标志
 volatile bool io_state_flag[19] = {false};//IO页面的显示状态
 volatile bool save_flag = false;            // 保存数据标志
 volatile bool wait_arr_flag = false;            // 保存数据标志
-volatile bool in_play_mp3_flag = false;            // 保存数据标志
 volatile bool sound_state = false;          // 声音状态（0：低音，1：高音）
 volatile bool music_des_flag = false;       // 音乐播放器销毁标志
 volatile bool show_floor_flag = false;      //更新楼层显示标志
-volatile bool video_defuat_flag = false;    // 视频已经存在更新标志
 volatile bool restart_music_flag = false;   // 重新创建音乐播放器标志
 volatile bool frist_set_time_flag = true;   // 刚进入设置页面，设置一下时间
 volatile bool wait_fire_play_flag = false;            //
@@ -120,6 +115,7 @@ volatile uint8_t page_image_cnt[11] = {0};  //
 volatile bool have_txt_flag[14] = {false};  //
 volatile bool txt_mode[14] = {false};  //
 volatile bool page_play_mode[14] = {false};  //
+volatile uint8_t page_set_play_mode[14] = {1,1,1,1,1,1,1,1,1,1,1,1,1,1};  //
 
 volatile bool txt_renew_flag = false;    // 文本更新成功标志
 char update_txt_content[800] = {0};
@@ -131,7 +127,6 @@ volatile int media_count = 0;                      // USB中当前类型文件�
 volatile int video_num = 0; // V1=0, V2=1, V3=2
 volatile int usb_image_cnt = 0;                    // USB中图片的数量
 volatile int current_media_idx = 0;                // 当前处理的文件索引（0开始）
-volatile uint16_t weather_select = 0;
 volatile uint32_t accumulated_seconds = 0;  // 累计流逝的秒数
 
 cnt_t my_cnt = {0, 0, 0, 0, 0, 0};
@@ -184,7 +179,6 @@ char city_name_str[32] = {0};
 char city_code_str[32] = {0};
 uint8_t city2_temp = 0;
 uint16_t city3_temp = 0;
-volatile bool set_city_ok_flag = false;
 /*******************电梯变量******************************/
 volatile bool elevator_arrow_flag = false;
 volatile bool elevator_change_flag = false;
@@ -345,6 +339,8 @@ static void init_main(void)
         }else {
             MY_SET.play_mode = PLAY_IMAGE;
         }
+    }else{
+        MY_SET.play_mode = page_set_play_mode[txt_update_page_num];
     }
 
     // 初始化看门狗

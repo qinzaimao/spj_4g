@@ -1460,7 +1460,7 @@ static void ok_handler(lv_event_t *e)
         rt_kprintf("city_code : %s\n", city_code[my_city_id.city_value +  my_city_id.city_2][my_city_id.city_3]);
         memset(city_name_str, 0, sizeof(city_name_str));
         sprintf(city_name_str,"%s",buf);
-        set_city_ok_flag = true;
+
 
         city3_temp = 0;
         uint16_t id = lv_dropdown_get_selected(guider_ui.screen_city_hor_ddlist_1);

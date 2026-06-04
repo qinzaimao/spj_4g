@@ -86,15 +86,6 @@ static void mouse_read(lv_indev_t *indev_drv, lv_indev_data_t *data)
                         setup_scr_screen_set(&guider_ui);
                         lv_scr_load_anim(guider_ui.screen_set, LV_SCR_LOAD_ANIM_NONE, 0, 0, true);
                     }
-                    rt_kprintf("video_renew = %d\n", video_renew);
-                    rt_kprintf("video_select = %d\n", video_select);
-                    rt_kprintf("have_two_video_flag = %d\n", have_two_video_flag);
-                    rt_kprintf("video_continue_flag = %d\n", video_continue_flag);
-                    rt_kprintf("home_video_flag = %d\n", home_video_flag);
-                    rt_kprintf("home_hor_video_flag = %d\n", home_hor_video_flag);
-                    rt_kprintf("init_video_flag = %d\n", init_video_flag);
-                    rt_kprintf("my_lvgl_player_ctx.player = %d\n", my_lvgl_player_ctx.player == NULL ? 0 : 1);
-                    rt_kprintf("g_user_audio_render.render = %d\n", g_user_audio_render.render);
                 }
                 else
                 {
@@ -144,17 +135,6 @@ static void mouse_read(lv_indev_t *indev_drv, lv_indev_data_t *data)
                         setup_scr_screen_set_hor(&guider_ui);
                         lv_scr_load_anim(guider_ui.screen_set_hor, LV_SCR_LOAD_ANIM_NONE, 0, 0, true);
                     }
-                    // 重启操作
-                    rt_kprintf("video_renew = %d\n", video_renew);
-                    rt_kprintf("have_two_video_flag = %d\n", have_two_video_flag);
-                    rt_kprintf("video_select = %d\n", video_select);
-                    rt_kprintf("video_continue_flag = %d\n", video_continue_flag);
-                    rt_kprintf("home_video_flag = %d\n", home_video_flag);
-                    rt_kprintf("home_hor_video_flag = %d\n", home_hor_video_flag);
-                    rt_kprintf("init_video_flag = %d\n", init_video_flag);
-                    rt_kprintf("my_lvgl_player_ctx.player = %d\n", my_lvgl_player_ctx.player == NULL ? 0 : 1);
-                    rt_kprintf("g_user_audio_render.render = %d\n", g_user_audio_render.render);
-
                 }
                 else
                 {

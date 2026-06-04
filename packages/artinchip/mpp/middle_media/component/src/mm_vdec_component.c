@@ -272,7 +272,7 @@ mm_vdec_video_pixel_format_trans(enum mpp_pixel_format *p_dest_pix_format,
     }
     return ret;
 }
-extern volatile bool video_no_super_flag;
+
 extern volatile bool show_video_label_flag;
 static s32 mm_vdec_set_parameter(mm_handle h_component, MM_INDEX_TYPE index,
                                  void *p_param)
@@ -298,7 +298,6 @@ static s32 mm_vdec_set_parameter(mm_handle h_component, MM_INDEX_TYPE index,
                         &codec_type, &port_format->compression_format) != 0) {
                     error = MM_ERROR_UNSUPPORT;
                     loge("MM_ERROR_UNSUPPORT\n");
-                    video_no_super_flag = true;
                     break;
                 }else if(show_video_label_flag) show_video_label_flag = false;
                 if (mm_vdec_video_pixel_format_trans(

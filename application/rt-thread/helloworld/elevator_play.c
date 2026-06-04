@@ -57,7 +57,7 @@ void elevator_play_thread_entry(void *parameter)
             rt_mutex_take(elevtor_mutex, RT_WAITING_FOREVER);
             bool need   =  need_to_play_video_flag && (!wait_elevtor_flag);
             rt_mutex_release(elevtor_mutex);
-            // rt_kprintf("play_elevator.elevator_up = %d\n", play_elevator.elevator_up);
+                        // rt_kprintf("play_elevator.elevator_up = %d\n", play_elevator.elevator_up);
             if (((enter_en && music_en) || video_en) && !in_video_state_flag && !need)
             {
                 static uint8_t buzz_cnt = 0;
@@ -271,7 +271,6 @@ void elevator_play_thread_entry(void *parameter)
                         // rt_kprintf("here music_close_door\n");
                         if(my_cnt.last_play_state != 4 && my_cnt.close != 0)
                         {
-
                             my_cnt.last_play_state = 4;
                             my_cnt.close --;
                             open_or_close_door_cnt = 2;

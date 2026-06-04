@@ -1008,26 +1008,21 @@ static void Cmdparsing(rt_uint8_t *buf)
 #else
     // 检查数据是否更新
     rt_uint8_t data_update = 0;
-    if (break_uart_flag)
+
+    for (int i = 0; i < sizeof(pre_eledata); i++)
     {
-        break_uart_flag = false;
-    }
-    else
-    {
-        for (int i = 0; i < sizeof(pre_eledata); i++)
+        if (buf[i] != pre_eledata[i])
         {
-            if (buf[i] != pre_eledata[i])
-            {
-                data_update = 1;
-                break;
-            }
-        }
-        if (!data_update)
-        {
-            // rt_kprintf("数据未更新\n");
-            return;
+            data_update = 1;
+            break;
         }
     }
+    if (!data_update)
+    {
+        // rt_kprintf("数据未更新\n");
+        return;
+    }
+
     // rt_kprintf("数据有变化\n");
     memset(pre_eledata, 0, sizeof(pre_eledata));
     memcpy(pre_eledata, buf, sizeof(pre_eledata));

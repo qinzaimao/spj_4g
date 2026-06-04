@@ -1332,7 +1332,7 @@ void media_import_thread_entry(void *parameter)
                         {
                             rt_kprintf("【视频导入成功】V%d校验通过！\n", video_num + 1);
                             udisk_update_state = VIDEO_UPDATE_FINISH;
-                            video_defuat_flag = true;
+
 
                             // 更新三维标记数组（互斥）
                             if (is_avi_format)
