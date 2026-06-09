@@ -1324,12 +1324,12 @@ mm_vdieo_render_process_video_sync(mm_video_render_data *p_video_render_data,
                __LINE__, p_frame_info->pts, delay_time);
     }
 
-    if (delay_time > 2 * MM_VIDEO_SYNC_DIFF_TIME) {
+    if (delay_time > 3 * MM_VIDEO_SYNC_DIFF_TIME) {
         sync_type = MM_VIDEO_SYNC_DELAY;
-    } else if (delay_time > (-2) * MM_VIDEO_SYNC_DIFF_TIME) {
+    } else if (delay_time > (-3) * MM_VIDEO_SYNC_DIFF_TIME) {
         sync_type = MM_VIDEO_SYNC_SHOW;
     } else {
-        sync_type = MM_VIDEO_SYNC_DROP;
+        sync_type = MM_VIDEO_SYNC_SHOW;
     }
 
     *delay = delay_time;
