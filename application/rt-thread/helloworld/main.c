@@ -156,9 +156,9 @@ SET_DHCP_T MY_SET_DHCP = {true, {192, 168, 1, 200}, {255, 255, 255, 0}, {192, 16
 volatile bool update_ok_flag = false; // 升级成功标志
 volatile uint8_t udisk_update_state = UPDATE_NONE, read_percent = 0;
 /*******************voice界面变量******************************/
-VOICE_SWITCH MY_VOICE_SWITCH = {true, true, true, false, true, true, true, true, true, true, true}; // 开关状态
-volatile bool btn_music[3] = {false, true, false};                                                // 记录单击的音乐按钮
-volatile bool music_state[3] = {false, true, false};                                               // 音乐播放状态
+VOICE_SWITCH MY_VOICE_SWITCH = {false, true, true, false, true, true, true, true, true, true, true}; // 开关状态
+volatile bool btn_music[3] = {false, false, false};                                                // 记录单击的音乐按钮
+volatile bool music_state[3] = {false, false, false};                                               // 音乐播放状态
 volatile bool music_renew_flag = false;                                                            // 音乐播放器是否需要更新
 volatile bool voice_start_work = false;                                                            // 开始工作
 volatile bool energy_conservation = false;                                                         // 节能模式
