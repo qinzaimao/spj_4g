@@ -2181,7 +2181,16 @@ void uart_thread_entry(void *parameter)
 
                     Cmdparsing(valid_frame_buf);
 #else
-                    if (calc_crc == recv_crc) Cmdparsing(valid_frame_buf);
+                    if (calc_crc == recv_crc)
+                    {
+                        if(is_tcp_connected)
+                        {
+                            tcp_send_raw(valid_frame_buf, 9);
+                            last_recv_tick = rt_tick_get();
+                            // rt_thread_mdelay(2);
+                        }
+                        Cmdparsing(valid_frame_buf);
+                    }
 #endif
 
                     // 移除已处理帧（只移动读指针，零数据移动）
@@ -2205,7 +2214,13 @@ void uart_thread_entry(void *parameter)
                     rt_kprintf("\n");
 
                     process_version_packet(valid_frame_buf);
-
+                    // 原包转发
+                    if(is_tcp_connected)
+                    {
+                        tcp_send_raw(valid_frame_buf, 8);
+                        last_recv_tick = rt_tick_get();
+                        // rt_thread_mdelay(2);
+                    }
                     // 移除已处理帧
                     ring_buffer_skip(&rx_ring_buf, rx_ring_buf.len);
                     continue;

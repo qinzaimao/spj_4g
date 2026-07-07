@@ -93,6 +93,7 @@ void cfgSave()
     buff[76] = work_start_time;
     buff[77] = work_over_time;
 
+    buff[78] = MY_SET_DHCP.host_state;
 
     buff[79] =  MY_SET_DHCP.ip[0];
     buff[80] =  MY_SET_DHCP.ip[1];
@@ -369,6 +370,8 @@ void cfgRead()
 
         work_start_time = buff[76];
         work_over_time = buff[77];
+
+        MY_SET_DHCP.host_state = buff[78];
 
         MY_SET_DHCP.ip[0] = buff[79];
         MY_SET_DHCP.ip[1] = buff[80];

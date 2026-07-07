@@ -431,7 +431,7 @@ static void language_event_handler(lv_event_t *e)
             lv_label_set_text(guider_ui.screen_set_hor_label_9, "                                       时间设定:");
             lv_label_set_text(guider_ui.screen_set_hor_label_10, "                                                 城市:");
             lv_label_set_text(guider_ui.screen_set_hor_label_11, "                                        每天自动重启时间(时):");
-            lv_label_set_text(guider_ui.screen_set_hor_label_12, "                                           IP:\n   DHCP                              子网掩码:\n                                           默认网关:\n                                           DNS:");
+            lv_label_set_text(guider_ui.screen_set_hor_label_12, "                                           IP:\n   DHCP                              子网掩码:\n                                           默认网关:\n                                           Connect IP:");
             lv_label_set_text(guider_ui.screen_set_hor_label_key, "输入密码");
             lv_label_set_text(guider_ui.screen_set_hor_btn_retur_label, "返回");
             lv_label_set_text(guider_ui.screen_set_hor_btn_IO_label, "设置IO板");
@@ -475,7 +475,7 @@ static void language_event_handler(lv_event_t *e)
             lv_label_set_text(guider_ui.screen_set_hor_label_9, "                                       Set Time:");
             lv_label_set_text(guider_ui.screen_set_hor_label_10, "                                                 City:");
             lv_label_set_text(guider_ui.screen_set_hor_label_11, "                                       Auto-RStart(Hour):");
-            lv_label_set_text(guider_ui.screen_set_hor_label_12, "                                           IP:\n   DHCP                              Mask:\n                                           GateWay:\n                                           DNS:");
+            lv_label_set_text(guider_ui.screen_set_hor_label_12, "                                           IP:\n   DHCP                              Mask:\n                                           GateWay:\n                                           Connect IP:");
             lv_label_set_text(guider_ui.screen_set_hor_label_key, "Input the password");
             lv_label_set_text(guider_ui.screen_set_hor_btn_retur_label, "BACK");
             lv_label_set_text(guider_ui.screen_set_hor_btn_IO_label, "Set IO");
@@ -617,10 +617,10 @@ static void dhcp_event_handler(lv_event_t *e)
             lv_obj_clear_flag(guider_ui.screen_set_hor_ddlist_ip10, LV_OBJ_FLAG_CLICKABLE);
             lv_obj_clear_flag(guider_ui.screen_set_hor_ddlist_ip11, LV_OBJ_FLAG_CLICKABLE);
             lv_obj_clear_flag(guider_ui.screen_set_hor_ddlist_ip12, LV_OBJ_FLAG_CLICKABLE);
-            lv_obj_clear_flag(guider_ui.screen_set_hor_ddlist_ip13, LV_OBJ_FLAG_CLICKABLE);
-            lv_obj_clear_flag(guider_ui.screen_set_hor_ddlist_ip14, LV_OBJ_FLAG_CLICKABLE);
-            lv_obj_clear_flag(guider_ui.screen_set_hor_ddlist_ip15, LV_OBJ_FLAG_CLICKABLE);
-            lv_obj_clear_flag(guider_ui.screen_set_hor_ddlist_ip16, LV_OBJ_FLAG_CLICKABLE);
+            // lv_obj_clear_flag(guider_ui.screen_set_hor_ddlist_ip13, LV_OBJ_FLAG_CLICKABLE);
+            // lv_obj_clear_flag(guider_ui.screen_set_hor_ddlist_ip14, LV_OBJ_FLAG_CLICKABLE);
+            // lv_obj_clear_flag(guider_ui.screen_set_hor_ddlist_ip15, LV_OBJ_FLAG_CLICKABLE);
+            // lv_obj_clear_flag(guider_ui.screen_set_hor_ddlist_ip16, LV_OBJ_FLAG_CLICKABLE);
             lv_obj_set_style_bg_color(guider_ui.screen_set_hor_ddlist_ip1, lv_color_hex(0xb6b4b9), LV_PART_MAIN|LV_STATE_DEFAULT);
             lv_obj_set_style_bg_color(guider_ui.screen_set_hor_ddlist_ip2, lv_color_hex(0xb6b4b9), LV_PART_MAIN|LV_STATE_DEFAULT);
             lv_obj_set_style_bg_color(guider_ui.screen_set_hor_ddlist_ip3, lv_color_hex(0xb6b4b9), LV_PART_MAIN|LV_STATE_DEFAULT);
@@ -633,10 +633,10 @@ static void dhcp_event_handler(lv_event_t *e)
             lv_obj_set_style_bg_color(guider_ui.screen_set_hor_ddlist_ip10, lv_color_hex(0xb6b4b9), LV_PART_MAIN|LV_STATE_DEFAULT);
             lv_obj_set_style_bg_color(guider_ui.screen_set_hor_ddlist_ip11, lv_color_hex(0xb6b4b9), LV_PART_MAIN|LV_STATE_DEFAULT);
             lv_obj_set_style_bg_color(guider_ui.screen_set_hor_ddlist_ip12, lv_color_hex(0xb6b4b9), LV_PART_MAIN|LV_STATE_DEFAULT);
-            lv_obj_set_style_bg_color(guider_ui.screen_set_hor_ddlist_ip13, lv_color_hex(0xb6b4b9), LV_PART_MAIN|LV_STATE_DEFAULT);
-            lv_obj_set_style_bg_color(guider_ui.screen_set_hor_ddlist_ip14, lv_color_hex(0xb6b4b9), LV_PART_MAIN|LV_STATE_DEFAULT);
-            lv_obj_set_style_bg_color(guider_ui.screen_set_hor_ddlist_ip15, lv_color_hex(0xb6b4b9), LV_PART_MAIN|LV_STATE_DEFAULT);
-            lv_obj_set_style_bg_color(guider_ui.screen_set_hor_ddlist_ip16, lv_color_hex(0xb6b4b9), LV_PART_MAIN|LV_STATE_DEFAULT);
+            // lv_obj_set_style_bg_color(guider_ui.screen_set_hor_ddlist_ip13, lv_color_hex(0xb6b4b9), LV_PART_MAIN|LV_STATE_DEFAULT);
+            // lv_obj_set_style_bg_color(guider_ui.screen_set_hor_ddlist_ip14, lv_color_hex(0xb6b4b9), LV_PART_MAIN|LV_STATE_DEFAULT);
+            // lv_obj_set_style_bg_color(guider_ui.screen_set_hor_ddlist_ip15, lv_color_hex(0xb6b4b9), LV_PART_MAIN|LV_STATE_DEFAULT);
+            // lv_obj_set_style_bg_color(guider_ui.screen_set_hor_ddlist_ip16, lv_color_hex(0xb6b4b9), LV_PART_MAIN|LV_STATE_DEFAULT);
         }else{
             lv_obj_add_flag(guider_ui.screen_set_hor_ddlist_ip1, LV_OBJ_FLAG_CLICKABLE);
             lv_obj_add_flag(guider_ui.screen_set_hor_ddlist_ip2, LV_OBJ_FLAG_CLICKABLE);
@@ -650,10 +650,10 @@ static void dhcp_event_handler(lv_event_t *e)
             lv_obj_add_flag(guider_ui.screen_set_hor_ddlist_ip10, LV_OBJ_FLAG_CLICKABLE);
             lv_obj_add_flag(guider_ui.screen_set_hor_ddlist_ip11, LV_OBJ_FLAG_CLICKABLE);
             lv_obj_add_flag(guider_ui.screen_set_hor_ddlist_ip12, LV_OBJ_FLAG_CLICKABLE);
-            lv_obj_add_flag(guider_ui.screen_set_hor_ddlist_ip13, LV_OBJ_FLAG_CLICKABLE);
-            lv_obj_add_flag(guider_ui.screen_set_hor_ddlist_ip14, LV_OBJ_FLAG_CLICKABLE);
-            lv_obj_add_flag(guider_ui.screen_set_hor_ddlist_ip15, LV_OBJ_FLAG_CLICKABLE);
-            lv_obj_add_flag(guider_ui.screen_set_hor_ddlist_ip16, LV_OBJ_FLAG_CLICKABLE);
+            // lv_obj_add_flag(guider_ui.screen_set_hor_ddlist_ip13, LV_OBJ_FLAG_CLICKABLE);
+            // lv_obj_add_flag(guider_ui.screen_set_hor_ddlist_ip14, LV_OBJ_FLAG_CLICKABLE);
+            // lv_obj_add_flag(guider_ui.screen_set_hor_ddlist_ip15, LV_OBJ_FLAG_CLICKABLE);
+            // lv_obj_add_flag(guider_ui.screen_set_hor_ddlist_ip16, LV_OBJ_FLAG_CLICKABLE);
             lv_obj_set_style_bg_color(guider_ui.screen_set_hor_ddlist_ip1, lv_color_hex(0xffffff), LV_PART_MAIN|LV_STATE_DEFAULT);
             lv_obj_set_style_bg_color(guider_ui.screen_set_hor_ddlist_ip2, lv_color_hex(0xffffff), LV_PART_MAIN|LV_STATE_DEFAULT);
             lv_obj_set_style_bg_color(guider_ui.screen_set_hor_ddlist_ip3, lv_color_hex(0xffffff), LV_PART_MAIN|LV_STATE_DEFAULT);
@@ -666,10 +666,45 @@ static void dhcp_event_handler(lv_event_t *e)
             lv_obj_set_style_bg_color(guider_ui.screen_set_hor_ddlist_ip10, lv_color_hex(0xffffff), LV_PART_MAIN|LV_STATE_DEFAULT);
             lv_obj_set_style_bg_color(guider_ui.screen_set_hor_ddlist_ip11, lv_color_hex(0xffffff), LV_PART_MAIN|LV_STATE_DEFAULT);
             lv_obj_set_style_bg_color(guider_ui.screen_set_hor_ddlist_ip12, lv_color_hex(0xffffff), LV_PART_MAIN|LV_STATE_DEFAULT);
+            // lv_obj_set_style_bg_color(guider_ui.screen_set_hor_ddlist_ip13, lv_color_hex(0xffffff), LV_PART_MAIN|LV_STATE_DEFAULT);
+            // lv_obj_set_style_bg_color(guider_ui.screen_set_hor_ddlist_ip14, lv_color_hex(0xffffff), LV_PART_MAIN|LV_STATE_DEFAULT);
+            // lv_obj_set_style_bg_color(guider_ui.screen_set_hor_ddlist_ip15, lv_color_hex(0xffffff), LV_PART_MAIN|LV_STATE_DEFAULT);
+            // lv_obj_set_style_bg_color(guider_ui.screen_set_hor_ddlist_ip16, lv_color_hex(0xffffff), LV_PART_MAIN|LV_STATE_DEFAULT);
+        }
+    }
+}
+
+static void host_event_handler(lv_event_t *e)
+{
+    lv_event_code_t code = lv_event_get_code(e);
+    lv_obj_t *target = lv_event_get_target(e);
+
+    if (code == LV_EVENT_CLICKED)
+    {
+        MY_SET_DHCP.host_state = !MY_SET_DHCP.host_state;
+        lv_label_set_text(guider_ui.screen_set_hor_btn_host_label, MY_SET_DHCP.host_state ? " " LV_SYMBOL_OK " " : "");
+        save_begin();
+        if(MY_SET_DHCP.host_state)
+        {
+            lv_obj_add_flag(guider_ui.screen_set_hor_ddlist_ip13, LV_OBJ_FLAG_CLICKABLE);
+            lv_obj_add_flag(guider_ui.screen_set_hor_ddlist_ip14, LV_OBJ_FLAG_CLICKABLE);
+            lv_obj_add_flag(guider_ui.screen_set_hor_ddlist_ip15, LV_OBJ_FLAG_CLICKABLE);
+            lv_obj_add_flag(guider_ui.screen_set_hor_ddlist_ip16, LV_OBJ_FLAG_CLICKABLE);
+
             lv_obj_set_style_bg_color(guider_ui.screen_set_hor_ddlist_ip13, lv_color_hex(0xffffff), LV_PART_MAIN|LV_STATE_DEFAULT);
             lv_obj_set_style_bg_color(guider_ui.screen_set_hor_ddlist_ip14, lv_color_hex(0xffffff), LV_PART_MAIN|LV_STATE_DEFAULT);
             lv_obj_set_style_bg_color(guider_ui.screen_set_hor_ddlist_ip15, lv_color_hex(0xffffff), LV_PART_MAIN|LV_STATE_DEFAULT);
             lv_obj_set_style_bg_color(guider_ui.screen_set_hor_ddlist_ip16, lv_color_hex(0xffffff), LV_PART_MAIN|LV_STATE_DEFAULT);
+        }else{
+            lv_obj_clear_flag(guider_ui.screen_set_hor_ddlist_ip13, LV_OBJ_FLAG_CLICKABLE);
+            lv_obj_clear_flag(guider_ui.screen_set_hor_ddlist_ip14, LV_OBJ_FLAG_CLICKABLE);
+            lv_obj_clear_flag(guider_ui.screen_set_hor_ddlist_ip15, LV_OBJ_FLAG_CLICKABLE);
+            lv_obj_clear_flag(guider_ui.screen_set_hor_ddlist_ip16, LV_OBJ_FLAG_CLICKABLE);
+
+            lv_obj_set_style_bg_color(guider_ui.screen_set_hor_ddlist_ip13, lv_color_hex(0xb6b4b9), LV_PART_MAIN|LV_STATE_DEFAULT);
+            lv_obj_set_style_bg_color(guider_ui.screen_set_hor_ddlist_ip14, lv_color_hex(0xb6b4b9), LV_PART_MAIN|LV_STATE_DEFAULT);
+            lv_obj_set_style_bg_color(guider_ui.screen_set_hor_ddlist_ip15, lv_color_hex(0xb6b4b9), LV_PART_MAIN|LV_STATE_DEFAULT);
+            lv_obj_set_style_bg_color(guider_ui.screen_set_hor_ddlist_ip16, lv_color_hex(0xb6b4b9), LV_PART_MAIN|LV_STATE_DEFAULT);
         }
     }
 }
@@ -1065,7 +1100,7 @@ void setup_scr_screen_set_hor(lv_ui *ui)
 
     //Write codes screen_set_hor_label_12
     ui->screen_set_hor_label_12 = lv_label_create(ui->screen_set_hor);
-    lv_label_set_text(ui->screen_set_hor_label_12, "                                           IP:\n   DHCP                              子网掩码:\n                                           默认网关:\n                                           DNS:");
+    lv_label_set_text(ui->screen_set_hor_label_12, "                                           IP:\n   DHCP                              子网掩码:\n                                           默认网关:\n                                           Connect IP:");
     lv_label_set_long_mode(ui->screen_set_hor_label_12, LV_LABEL_LONG_WRAP);
     lv_obj_set_pos(ui->screen_set_hor_label_12, 40, 494);
     lv_obj_set_size(ui->screen_set_hor_label_12, 944, 112);
@@ -3322,6 +3357,81 @@ void setup_scr_screen_set_hor(lv_ui *ui)
     lv_obj_set_style_text_opa(ui->screen_set_hor_btn_ip, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
     lv_obj_set_style_text_align(ui->screen_set_hor_btn_ip, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN|LV_STATE_DEFAULT);
 
+    //Write codes screen_set_hor_btn_host
+    ui->screen_set_hor_btn_host = lv_btn_create(ui->screen_set_hor);
+    ui->screen_set_hor_btn_host_label = lv_label_create(ui->screen_set_hor_btn_host);
+
+    lv_label_set_text(guider_ui.screen_set_hor_btn_host_label, MY_SET_DHCP.host_state ? " " LV_SYMBOL_OK " " : "");
+    lv_label_set_long_mode(ui->screen_set_hor_btn_host_label, LV_LABEL_LONG_WRAP);
+    lv_obj_align(ui->screen_set_hor_btn_host_label, LV_ALIGN_CENTER, 0, 0);
+    lv_obj_set_style_pad_all(ui->screen_set_hor_btn_host, 0, LV_STATE_DEFAULT);
+    lv_obj_set_width(ui->screen_set_hor_btn_host_label, LV_PCT(100));
+    lv_obj_set_pos(ui->screen_set_hor_btn_host, 40, 495);
+    lv_obj_set_size(ui->screen_set_hor_btn_host, 20, 20);
+
+    //Write style for screen_set_hor_btn_host, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.
+    lv_obj_set_style_bg_opa(ui->screen_set_hor_btn_host, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(ui->screen_set_hor_btn_host, lv_color_hex(0xffffff), LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_grad_dir(ui->screen_set_hor_btn_host, LV_GRAD_DIR_NONE, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_border_width(ui->screen_set_hor_btn_host, 1, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_border_opa(ui->screen_set_hor_btn_host, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_border_color(ui->screen_set_hor_btn_host, lv_color_hex(0x000000), LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_border_side(ui->screen_set_hor_btn_host, LV_BORDER_SIDE_BOTTOM | LV_BORDER_SIDE_RIGHT | LV_BORDER_SIDE_FULL, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_radius(ui->screen_set_hor_btn_host, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_shadow_width(ui->screen_set_hor_btn_host, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_color(ui->screen_set_hor_btn_host, lv_color_hex(0x000000), LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(ui->screen_set_hor_btn_host, &lv_font_Deng_12, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_opa(ui->screen_set_hor_btn_host, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_align(ui->screen_set_hor_btn_host, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN|LV_STATE_DEFAULT);
+
+    //Write codes screen_set_hor_label_host
+    ui->screen_set_hor_label_host = lv_label_create(ui->screen_set_hor);
+    lv_label_set_text(ui->screen_set_hor_label_host, "HOST");
+    lv_label_set_long_mode(ui->screen_set_hor_label_host, LV_LABEL_LONG_WRAP);
+    lv_obj_set_pos(ui->screen_set_hor_label_host, 62, 494);
+    lv_obj_set_size(ui->screen_set_hor_label_host, 69, 23);
+
+    //Write style for screen_set_hor_label_host, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.
+    lv_obj_set_style_border_width(ui->screen_set_hor_label_host, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_radius(ui->screen_set_hor_label_host, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_color(ui->screen_set_hor_label_host, lv_color_hex(0x000000), LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(ui->screen_set_hor_label_host, &lv_font_Dengb_22, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_opa(ui->screen_set_hor_label_host, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_letter_space(ui->screen_set_hor_label_host, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_line_space(ui->screen_set_hor_label_host, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_align(ui->screen_set_hor_label_host, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(ui->screen_set_hor_label_host, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_top(ui->screen_set_hor_label_host, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_right(ui->screen_set_hor_label_host, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_bottom(ui->screen_set_hor_label_host, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_left(ui->screen_set_hor_label_host, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_shadow_width(ui->screen_set_hor_label_host, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+
+
+    //Write codes screen_set_hor_label_uart_v
+    ui->screen_set_hor_label_uart_v = lv_label_create(ui->screen_set_hor);
+    lv_label_set_text(ui->screen_set_hor_label_uart_v, " ");
+    lv_label_set_long_mode(ui->screen_set_hor_label_uart_v, LV_LABEL_LONG_WRAP);
+    lv_obj_set_pos(ui->screen_set_hor_label_uart_v, 288, 10);
+    lv_obj_set_size(ui->screen_set_hor_label_uart_v, 192, 32);
+
+    //Write style for screen_set_hor_label_uart_v, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.
+    lv_obj_set_style_border_width(ui->screen_set_hor_label_uart_v, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_radius(ui->screen_set_hor_label_uart_v, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_color(ui->screen_set_hor_label_uart_v, lv_color_hex(0x000000), LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_font(ui->screen_set_hor_label_uart_v, &lv_font_Dengb_26, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_opa(ui->screen_set_hor_label_uart_v, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_letter_space(ui->screen_set_hor_label_uart_v, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_line_space(ui->screen_set_hor_label_uart_v, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_text_align(ui->screen_set_hor_label_uart_v, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_opa(ui->screen_set_hor_label_uart_v, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_top(ui->screen_set_hor_label_uart_v, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_right(ui->screen_set_hor_label_uart_v, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_bottom(ui->screen_set_hor_label_uart_v, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_pad_left(ui->screen_set_hor_label_uart_v, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+    lv_obj_set_style_shadow_width(ui->screen_set_hor_label_uart_v, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
+
+
     //Write codes screen_set_hor_tileview_key
     ui->screen_set_hor_tileview_key = lv_tileview_create(ui->screen_set_hor);
     ui->screen_set_hor_tileview_key_tile_key = lv_tileview_add_tile(ui->screen_set_hor_tileview_key, 0, 0, LV_DIR_RIGHT);
@@ -3455,28 +3565,6 @@ void setup_scr_screen_set_hor(lv_ui *ui)
     lv_obj_set_style_bg_grad_dir(ui->screen_set_hor_ta_key, LV_GRAD_DIR_NONE, LV_PART_SCROLLBAR|LV_STATE_DEFAULT);
     lv_obj_set_style_radius(ui->screen_set_hor_ta_key, 0, LV_PART_SCROLLBAR|LV_STATE_DEFAULT);
 
-    //Write codes screen_set_hor_label_uart_v
-    ui->screen_set_hor_label_uart_v = lv_label_create(ui->screen_set_hor);
-    lv_label_set_text(ui->screen_set_hor_label_uart_v, " ");
-    lv_label_set_long_mode(ui->screen_set_hor_label_uart_v, LV_LABEL_LONG_WRAP);
-    lv_obj_set_pos(ui->screen_set_hor_label_uart_v, 288, 10);
-    lv_obj_set_size(ui->screen_set_hor_label_uart_v, 192, 32);
-
-    //Write style for screen_set_hor_label_uart_v, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.
-    lv_obj_set_style_border_width(ui->screen_set_hor_label_uart_v, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
-    lv_obj_set_style_radius(ui->screen_set_hor_label_uart_v, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
-    lv_obj_set_style_text_color(ui->screen_set_hor_label_uart_v, lv_color_hex(0x000000), LV_PART_MAIN|LV_STATE_DEFAULT);
-    lv_obj_set_style_text_font(ui->screen_set_hor_label_uart_v, &lv_font_Dengb_26, LV_PART_MAIN|LV_STATE_DEFAULT);
-    lv_obj_set_style_text_opa(ui->screen_set_hor_label_uart_v, 255, LV_PART_MAIN|LV_STATE_DEFAULT);
-    lv_obj_set_style_text_letter_space(ui->screen_set_hor_label_uart_v, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
-    lv_obj_set_style_text_line_space(ui->screen_set_hor_label_uart_v, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
-    lv_obj_set_style_text_align(ui->screen_set_hor_label_uart_v, LV_TEXT_ALIGN_CENTER, LV_PART_MAIN|LV_STATE_DEFAULT);
-    lv_obj_set_style_bg_opa(ui->screen_set_hor_label_uart_v, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
-    lv_obj_set_style_pad_top(ui->screen_set_hor_label_uart_v, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
-    lv_obj_set_style_pad_right(ui->screen_set_hor_label_uart_v, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
-    lv_obj_set_style_pad_bottom(ui->screen_set_hor_label_uart_v, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
-    lv_obj_set_style_pad_left(ui->screen_set_hor_label_uart_v, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
-    lv_obj_set_style_shadow_width(ui->screen_set_hor_label_uart_v, 0, LV_PART_MAIN|LV_STATE_DEFAULT);
 
     //Write codes screen_set_hor_tileview_ip
     ui->screen_set_hor_tileview_ip = lv_tileview_create(ui->screen_set_hor);
@@ -3672,7 +3760,7 @@ void setup_scr_screen_set_hor(lv_ui *ui)
         lv_label_set_text(ui->screen_set_hor_label_9, "                                       时间设定:");
         lv_label_set_text(ui->screen_set_hor_label_10, "                                                 城市:");
         lv_label_set_text(ui->screen_set_hor_label_11, "                                        每天自动重启时间(时):");
-        lv_label_set_text(ui->screen_set_hor_label_12, "                                           IP:\n   DHCP                              子网掩码:\n                                           默认网关:\n                                           DNS:");
+        lv_label_set_text(ui->screen_set_hor_label_12, "                                           IP:\n   DHCP                              子网掩码:\n                                           默认网关:\n                                           Connect IP:");
         lv_label_set_text(ui->screen_set_hor_label_key, "输入密码");
         lv_label_set_text(ui->screen_set_hor_btn_retur_label, "返回");
         lv_label_set_text(ui->screen_set_hor_btn_IO_label, "设置IO板");
@@ -3708,7 +3796,7 @@ void setup_scr_screen_set_hor(lv_ui *ui)
         lv_label_set_text(ui->screen_set_hor_label_9, "                                       Set Time:");
         lv_label_set_text(ui->screen_set_hor_label_10, "                                                 City:");
         lv_label_set_text(ui->screen_set_hor_label_11, "                                       Auto-RStart(Hour):");
-        lv_label_set_text(ui->screen_set_hor_label_12, "                                           IP:\n   DHCP                              Mask:\n                                           GateWay:\n                                           DNS:");
+        lv_label_set_text(ui->screen_set_hor_label_12, "                                           IP:\n   DHCP                              Mask:\n                                           GateWay:\n                                           Connect IP:");
         lv_label_set_text(ui->screen_set_hor_btn_IO_label, "Set IO");
         lv_label_set_text(ui->screen_set_hor_btn_retur_label, "BACK");
         lv_label_set_text(ui->screen_set_hor_btn_voice_label, "Set Voice");
@@ -3756,10 +3844,10 @@ void setup_scr_screen_set_hor(lv_ui *ui)
         lv_obj_clear_flag(guider_ui.screen_set_hor_ddlist_ip10, LV_OBJ_FLAG_CLICKABLE);
         lv_obj_clear_flag(guider_ui.screen_set_hor_ddlist_ip11, LV_OBJ_FLAG_CLICKABLE);
         lv_obj_clear_flag(guider_ui.screen_set_hor_ddlist_ip12, LV_OBJ_FLAG_CLICKABLE);
-        lv_obj_clear_flag(guider_ui.screen_set_hor_ddlist_ip13, LV_OBJ_FLAG_CLICKABLE);
-        lv_obj_clear_flag(guider_ui.screen_set_hor_ddlist_ip14, LV_OBJ_FLAG_CLICKABLE);
-        lv_obj_clear_flag(guider_ui.screen_set_hor_ddlist_ip15, LV_OBJ_FLAG_CLICKABLE);
-        lv_obj_clear_flag(guider_ui.screen_set_hor_ddlist_ip16, LV_OBJ_FLAG_CLICKABLE);
+        // lv_obj_clear_flag(guider_ui.screen_set_hor_ddlist_ip13, LV_OBJ_FLAG_CLICKABLE);
+        // lv_obj_clear_flag(guider_ui.screen_set_hor_ddlist_ip14, LV_OBJ_FLAG_CLICKABLE);
+        // lv_obj_clear_flag(guider_ui.screen_set_hor_ddlist_ip15, LV_OBJ_FLAG_CLICKABLE);
+        // lv_obj_clear_flag(guider_ui.screen_set_hor_ddlist_ip16, LV_OBJ_FLAG_CLICKABLE);
     }else {
         lv_obj_set_style_bg_color(guider_ui.screen_set_hor_ddlist_ip1, lv_color_hex(0xffffff), LV_PART_MAIN|LV_STATE_DEFAULT);
         lv_obj_set_style_bg_color(guider_ui.screen_set_hor_ddlist_ip2, lv_color_hex(0xffffff), LV_PART_MAIN|LV_STATE_DEFAULT);
@@ -3773,10 +3861,22 @@ void setup_scr_screen_set_hor(lv_ui *ui)
         lv_obj_set_style_bg_color(guider_ui.screen_set_hor_ddlist_ip10, lv_color_hex(0xffffff), LV_PART_MAIN|LV_STATE_DEFAULT);
         lv_obj_set_style_bg_color(guider_ui.screen_set_hor_ddlist_ip11, lv_color_hex(0xffffff), LV_PART_MAIN|LV_STATE_DEFAULT);
         lv_obj_set_style_bg_color(guider_ui.screen_set_hor_ddlist_ip12, lv_color_hex(0xffffff), LV_PART_MAIN|LV_STATE_DEFAULT);
+        // lv_obj_set_style_bg_color(guider_ui.screen_set_hor_ddlist_ip13, lv_color_hex(0xffffff), LV_PART_MAIN|LV_STATE_DEFAULT);
+        // lv_obj_set_style_bg_color(guider_ui.screen_set_hor_ddlist_ip14, lv_color_hex(0xffffff), LV_PART_MAIN|LV_STATE_DEFAULT);
+        // lv_obj_set_style_bg_color(guider_ui.screen_set_hor_ddlist_ip15, lv_color_hex(0xffffff), LV_PART_MAIN|LV_STATE_DEFAULT);
+        // lv_obj_set_style_bg_color(guider_ui.screen_set_hor_ddlist_ip16, lv_color_hex(0xffffff), LV_PART_MAIN|LV_STATE_DEFAULT);
+    }
+    if(MY_SET_DHCP.host_state)
+    {
         lv_obj_set_style_bg_color(guider_ui.screen_set_hor_ddlist_ip13, lv_color_hex(0xffffff), LV_PART_MAIN|LV_STATE_DEFAULT);
         lv_obj_set_style_bg_color(guider_ui.screen_set_hor_ddlist_ip14, lv_color_hex(0xffffff), LV_PART_MAIN|LV_STATE_DEFAULT);
         lv_obj_set_style_bg_color(guider_ui.screen_set_hor_ddlist_ip15, lv_color_hex(0xffffff), LV_PART_MAIN|LV_STATE_DEFAULT);
         lv_obj_set_style_bg_color(guider_ui.screen_set_hor_ddlist_ip16, lv_color_hex(0xffffff), LV_PART_MAIN|LV_STATE_DEFAULT);
+    }else{
+        lv_obj_clear_flag(guider_ui.screen_set_hor_ddlist_ip13, LV_OBJ_FLAG_CLICKABLE);
+        lv_obj_clear_flag(guider_ui.screen_set_hor_ddlist_ip14, LV_OBJ_FLAG_CLICKABLE);
+        lv_obj_clear_flag(guider_ui.screen_set_hor_ddlist_ip15, LV_OBJ_FLAG_CLICKABLE);
+        lv_obj_clear_flag(guider_ui.screen_set_hor_ddlist_ip16, LV_OBJ_FLAG_CLICKABLE);
     }
 
     lv_dropdown_set_selected(guider_ui.screen_set_hor_ddlist_restart_time, 24 - day_reset_time);
@@ -3834,6 +3934,7 @@ void setup_scr_screen_set_hor(lv_ui *ui)
     lv_obj_add_event_cb(ui->screen_set_hor_btn_restart_time, time_reset_event_handler, LV_EVENT_ALL, ui);
     lv_obj_add_event_cb(ui->screen_set_hor_btn_ip, ip_event_handler, LV_EVENT_ALL, ui);
     lv_obj_add_event_cb(ui->screen_set_hor_btn_dhcp, dhcp_event_handler, LV_EVENT_ALL, ui);
+    lv_obj_add_event_cb(ui->screen_set_hor_btn_host, host_event_handler, LV_EVENT_ALL, ui);
     lv_obj_add_event_cb(ui->screen_set_hor_btn_play, play_event_handler, LV_EVENT_ALL, ui);
     lv_obj_add_event_cb(ui->screen_set_hor_btn_arrowhead, arrow_event_handler, LV_EVENT_ALL, ui);
     lv_obj_add_event_cb(ui->screen_set_hor_btn_interface, interface_event_handler, LV_EVENT_ALL, ui);

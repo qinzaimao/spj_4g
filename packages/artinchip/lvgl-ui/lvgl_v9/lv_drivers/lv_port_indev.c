@@ -156,7 +156,7 @@ static void mouse_read(lv_indev_t *indev_drv, lv_indev_data_t *data)
         data->state = LV_INDEV_STATE_REL; // <--- 右键只触发切换，不触发按下
         last_state = LV_INDEV_STATE_REL;  // <--- 强制清除触摸/鼠标按下状态
 
-        if (my_page == PAGE_HOME || my_page == PAGE_HOME_HOR)
+        if ((my_page == PAGE_HOME || my_page == PAGE_HOME_HOR) && MY_SET.play_mode == PLAY_VIDEO)
         {
             rt_kprintf("video_renew = PRINTF_RENEW;\n");
             video_renew = PRINTF_RENEW;

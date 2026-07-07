@@ -1,5 +1,5 @@
 #include "video.h"
-#define VIDEO_TIMEOUT_TICK    (RT_TICK_PER_SECOND * 2)
+#define VIDEO_TIMEOUT_TICK    (RT_TICK_PER_SECOND * 3)
 static rt_tick_t last_play_tick = 0;
 
 volatile static bool break_seek_flag = false;
@@ -1165,7 +1165,7 @@ void video_thread_entry(void *parameter)
                 rt_tick_t now = rt_tick_get();
                 if (now - current_tick > VIDEO_TIMEOUT_TICK)
                 {
-                    rt_kprintf("\n!!! 视频卡住2秒,强制重启播放器(多视频生效) !!!\n");
+                    rt_kprintf("\n!!! 视频卡住3秒,强制重启播放器(多视频生效) !!!\n");
                     rt_mutex_take(video_mutex, RT_WAITING_FOREVER);
                     video_renew = PRINTF_RENEW;
                     last_play_tick = 0;

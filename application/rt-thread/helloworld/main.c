@@ -11,6 +11,7 @@ static rt_thread_t mouse_image_thread = RT_NULL;
 static rt_thread_t  music_thread = RT_NULL, rtc_thread = RT_NULL;
 static rt_thread_t uart_thread = RT_NULL, elevator_play_thread = RT_NULL, lwip_thread = RT_NULL;
 static rt_thread_t media_import_thread = RT_NULL, image_thread = RT_NULL, cfgsave_thread = RT_NULL;
+static rt_thread_t tcp_info_thread = RT_NULL;
 /*****************LVGL部分******************************/
 volatile uint8_t hengping = 0; // 1横屏 0竖屏
 /*****************rt-thread部分******************************/
@@ -147,12 +148,12 @@ SET_TIME_T MY_SET_TIME = {2025, 6, 30, 12, 10, 5}; // 当前时间
 #endif
 //                           选择的图片、     logo、      箭头
 #if MY_USE
-SET_IMAGE_T MY_SET_IMAGE = {IMAGE_C403_ver, LOGO_XIO, ARROW_XIO};
+SET_IMAGE_T MY_SET_IMAGE = {IMAGE_C401_ver, LOGO_XIO, ARROW_XIO};
 #else
 SET_IMAGE_T MY_SET_IMAGE = {IMAGE_C401_ver, LOGO_XIO, ARROW_XIO};
 #endif
 //                        dhcp、        IP、              子网掩码、          网关、            DNS
-SET_DHCP_T MY_SET_DHCP = {true, {192, 168, 1, 200}, {255, 255, 255, 0}, {192, 168, 1, 1}, {0, 0, 0, 0}};
+SET_DHCP_T MY_SET_DHCP = {true, true, {192, 168, 1, 200}, {255, 255, 255, 0}, {192, 168, 1, 1}, {192, 168, 1, 188}};
 /*******************update界面变量******************************/
 volatile bool update_ok_flag = false; // 升级成功标志
 volatile uint8_t udisk_update_state = UPDATE_NONE, read_percent = 0;
@@ -470,6 +471,12 @@ static void create_thread(void)
                                    1024 * 10,                           // 线程堆栈大小
                                    20,                                   // 线程优先级
                                    20);                                 // 时间片参数
+    tcp_info_thread = rt_thread_create("tcp_info",                              // 线程名字
+                                   tcp_info_thread_entry,                   // 线程入口函数
+                                   RT_NULL,                             // 线程入口参数
+                                   1024 * 10,                           // 线程堆栈大小
+                                   18,                                   // 线程优先级
+                                   20);                                 // 时间片参数
 
     if (video_thread)
         rt_thread_startup(video_thread);
@@ -489,8 +496,10 @@ static void create_thread(void)
         rt_thread_startup(elevator_play_thread);
     if (lwip_thread)
         rt_thread_startup(lwip_thread);
-    if (udp_rec_thread)
-        rt_thread_startup(udp_rec_thread);
+    if (tcp_info_thread)
+        rt_thread_startup(tcp_info_thread);
+    // if (udp_rec_thread)
+        // rt_thread_startup(udp_rec_thread);
 }
 /*创建互斥锁*/
 static void create_mutex(void)

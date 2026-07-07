@@ -29,6 +29,10 @@
 #include "mpp_log.h"
 
 
+#include "lwip/tcp.h"
+#include "lwip/pbuf.h"
+#include "lwip/ip_addr.h"
+#include "lwip/netif.h"
 
 #include <dirent.h>
 
@@ -52,6 +56,7 @@
 #include "elevator_play.h"
 #include "weather.h"
 #include "udp_rec.h"
+#include "my_tcp.h"
 
 #define CONN(x, y) x#y
 #define LVGL_DIRR "L:" LVGL_STORAGE_PATH "/"
@@ -63,7 +68,7 @@
 #define LVGL_PCM_PATH LVGL_STORAGE_PATH"/pcm/"
 #define PCM_PATH(y) CONN(LVGL_PCM_PATH, y)
 
-#define VERSION_DATE "Ver: 1.0 (20260701)"
+#define VERSION_DATE "Ver: 1.0 (20260707)"
 
 //我用 1 ，客户 0
 #define MY_USE 1
@@ -215,6 +220,7 @@ typedef struct {
 
 typedef struct {
     volatile bool dhcp_state;        // 是否开启dhcp
+    volatile bool host_state;        // 是否开启dhcp
     volatile uint16_t ip[4];         //ip
     volatile uint16_t mask[4];        //子网掩码
     volatile uint16_t gateway[4];     //网关
@@ -226,6 +232,8 @@ extern SET_TIME_T MY_SET_TIME;
 extern SET_T MY_SET;
 extern SET_IMAGE_T MY_SET_IMAGE;
 extern SET_DHCP_T MY_SET_DHCP;
+
+extern rt_bool_t is_tcp_connected;
 
 extern volatile bool reset_time_flag, uart_v_flag, set_volume_flag;
 extern volatile uint8_t day_reset_time;

@@ -131,6 +131,9 @@ extern "C"
 		lv_obj_t *screen_set_tileview_ip;
 		lv_obj_t *screen_set_tileview_ip_tile_ip;
 		lv_obj_t *screen_set_label_save_ip;
+		lv_obj_t *screen_set_label_host;
+		lv_obj_t *screen_set_btn_host;
+		lv_obj_t *screen_set_btn_host_label;
 
 		lv_obj_t *screen_set_tileview_key;
 		lv_obj_t *screen_set_tileview_key_tile_key;
@@ -469,6 +472,10 @@ extern "C"
 		lv_obj_t *screen_set_hor_btn_dhcp_label;
 		lv_obj_t *screen_set_hor_btn_ip;
 		lv_obj_t *screen_set_hor_btn_ip_label;
+		lv_obj_t *screen_set_hor_label_host;
+		lv_obj_t *screen_set_hor_btn_host;
+		lv_obj_t *screen_set_hor_btn_host_label;
+
 		lv_obj_t *screen_set_hor_tileview_key;
 		lv_obj_t *screen_set_hor_tileview_key_tile_key;
 		lv_obj_t *screen_set_hor_label_key;
