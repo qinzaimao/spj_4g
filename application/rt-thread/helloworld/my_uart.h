@@ -126,6 +126,7 @@ struct rt_elevator_t{
     uint8_t power_off_state;    // 断电状态(0=否,1=是)
     uint8_t trap_comfort_state;    // 困人状态(0=否,1=是)
     uint8_t fault_code;        // 故障代码
+    uint8_t video_state;      // 视频状态
 
     // 新增：显示相关
     char disp[DISP_BUF_LEN];   // 最终楼层显示字符串（如"B1"、"12"）
@@ -136,6 +137,8 @@ struct rt_elevator_t{
 // 函数声明
 void uart_thread_entry(void *parameter);
 void send_version_query(void);
+void Cmdparsing(rt_uint8_t *buf);
+unsigned int crc_chk_value(unsigned char *data_value, unsigned char length);
 void send_custom_packet(rt_uint8_t io_number, rt_uint8_t io_data_high, rt_uint8_t io_data_low);
 
 #endif /* __MY_UART_H__ */

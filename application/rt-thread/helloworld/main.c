@@ -6,6 +6,7 @@
 #include "main.h"
 
 rt_thread_t video_thread = RT_NULL;
+rt_thread_t udp_rec_thread = RT_NULL;
 static rt_thread_t mouse_image_thread = RT_NULL;
 static rt_thread_t  music_thread = RT_NULL, rtc_thread = RT_NULL;
 static rt_thread_t uart_thread = RT_NULL, elevator_play_thread = RT_NULL, lwip_thread = RT_NULL;
@@ -146,7 +147,7 @@ SET_TIME_T MY_SET_TIME = {2025, 6, 30, 12, 10, 5}; // 当前时间
 #endif
 //                           选择的图片、     logo、      箭头
 #if MY_USE
-SET_IMAGE_T MY_SET_IMAGE = {IMAGE_C404_ver, LOGO_XIO, ARROW_XIO};
+SET_IMAGE_T MY_SET_IMAGE = {IMAGE_C403_ver, LOGO_XIO, ARROW_XIO};
 #else
 SET_IMAGE_T MY_SET_IMAGE = {IMAGE_C401_ver, LOGO_XIO, ARROW_XIO};
 #endif
@@ -256,6 +257,7 @@ volatile bool open_door_obs_flag = false; // 标志
 volatile bool set_floor_ok_flag = false;
 volatile bool set_minu_floor_ok_flag = false;
 
+volatile uint8_t video_udp_state = 0;
 volatile uint8_t up_or_down = 0;
 volatile uint8_t overload_wait_cnt = 0;
 volatile uint8_t overload_play_cnt = 0;
@@ -462,6 +464,12 @@ static void create_thread(void)
                                    1024 * 10,                           // 线程堆栈大小
                                    20,                                   // 线程优先级
                                    20);                                 // 时间片参数
+    udp_rec_thread = rt_thread_create("udp_rec",                              // 线程名字
+                                   udp_rec_thread_entry,                   // 线程入口函数
+                                   RT_NULL,                             // 线程入口参数
+                                   1024 * 10,                           // 线程堆栈大小
+                                   20,                                   // 线程优先级
+                                   20);                                 // 时间片参数
 
     if (video_thread)
         rt_thread_startup(video_thread);
@@ -481,6 +489,8 @@ static void create_thread(void)
         rt_thread_startup(elevator_play_thread);
     if (lwip_thread)
         rt_thread_startup(lwip_thread);
+    if (udp_rec_thread)
+        rt_thread_startup(udp_rec_thread);
 }
 /*创建互斥锁*/
 static void create_mutex(void)

@@ -810,7 +810,7 @@ static rt_err_t uart_input(rt_device_t dev, rt_size_t size)
 /**
  * @brief 校验和计算函数
  */
-static unsigned int crc_chk_value(unsigned char *data_value, unsigned char length)
+unsigned int crc_chk_value(unsigned char *data_value, unsigned char length)
 {
     if (data_value == NULL || length == 0)
         return 0;
@@ -825,7 +825,7 @@ static unsigned int crc_chk_value(unsigned char *data_value, unsigned char lengt
 /*
  * @brief 协议解析函数（新增调用GetEleFloorDisp生成显示字符串）
  */
-static void Cmdparsing(rt_uint8_t *buf)
+void Cmdparsing(rt_uint8_t *buf)
 {
     static volatile uint8_t last_open_door_state = 10;
     static volatile uint8_t last_close_door_state = 1;
@@ -892,6 +892,8 @@ static void Cmdparsing(rt_uint8_t *buf)
     elevator_data.reset_end_state = (buf[6] >> 0) & 0x01;
     elevator_data.buzzer_state = (buf[6] >> 1) & 0x01;
     elevator_data.trap_comfort_state = (buf[6] >> 2) & 0x01;
+    // 提取 buf[6] 的 bit6、bit5 两位
+    elevator_data.video_state = (buf[6] >> 5) & 0x03;
     // elevator_data.fault_code = buf[6] & FAULT_CODE_MASK;
     // 新增：调用函数生成最终显示字符串
     elevator_data.disp_len = GetEleFloorDisp(elevator_data.high_display_code,
@@ -1027,8 +1029,13 @@ static void Cmdparsing(rt_uint8_t *buf)
     memset(pre_eledata, 0, sizeof(pre_eledata));
     memcpy(pre_eledata, buf, sizeof(pre_eledata));
 #endif
+    if(elevator_data.video_state)
+    {
+        video_udp_state = elevator_data.video_state;
+        rt_kprintf("视频状态: %d\n", elevator_data.video_state);
+    }
     // if (elevator_data.elevator_state2 == VIDEO_BUZZER_SIGNAL && (my_page == PAGE_HOME_HOR || my_page == PAGE_HOME)) // 新增：处理蜂鸣器信号
-    if (elevator_data.buzzer_state && (my_page == PAGE_HOME_HOR || my_page == PAGE_HOME)) // 新增：处理蜂鸣器信号
+    if (elevator_data.buzzer_state && (my_page == PAGE_HOME_HOR || my_page == PAGE_HOME) && MY_VOICE_SWITCH.voice) // 新增：处理蜂鸣器信号
     {
         last_state2_num = VIDEO_BUZZER_SIGNAL;
         rt_kprintf("蜂鸣器信号\n");
@@ -2169,6 +2176,9 @@ void uart_thread_entry(void *parameter)
                     uint16_t recv_crc = (valid_frame_buf[8] << 8) | valid_frame_buf[7];
                     uint16_t calc_crc = crc_chk_value(valid_frame_buf,7);
 #if break_check
+                    rt_kprintf("valid_frame_buf[7] = %02x\n", valid_frame_buf[7]);
+                    rt_kprintf("calc_crc = %04x\n", calc_crc);
+
                     Cmdparsing(valid_frame_buf);
 #else
                     if (calc_crc == recv_crc) Cmdparsing(valid_frame_buf);

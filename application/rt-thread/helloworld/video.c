@@ -180,8 +180,16 @@ static int set_disp_rect(struct lvgl_player_context *ctx)
             ctx->disp_rect.width = 437;
             ctx->disp_rect.height = 768;
         }
+        if(video_udp_state == 1)
+        {
+            ctx->disp_rect.x = 150;
+            ctx->disp_rect.y = 20;
+            ctx->disp_rect.width = 400;
+            ctx->disp_rect.height = 400;
+        }
         aic_player_set_rotation(ctx->player, MPP_ROTATION_90);
     }
+
 
     ret = aic_player_set_disp_rect(ctx->player, &ctx->disp_rect);
     if (ret != 0)

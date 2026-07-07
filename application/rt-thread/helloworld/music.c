@@ -1762,6 +1762,8 @@ void music_thread_entry(void *parameter)
         //开始销毁音乐播放器
         user_start_renew(music_renew_flag);
 
+
+
         /* 延时，避免CPU占用过高 */
         rt_thread_mdelay(20);
     }

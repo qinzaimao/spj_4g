@@ -736,6 +736,7 @@ static int play_single_audio(struct user_audio_render *p_user_audio_render, uint
     #if USE_PRI
     rt_kprintf("[audio]:PIN HIGH 1\n") ;
     #endif
+
     // 播放音频（带重试）
     do {
         ret = aic_audio_render_rend(p_user_audio_render->render, audio_buf, file_size);
@@ -1126,6 +1127,7 @@ s32 player_audio_render_share_play(uint8_t volume, uint16_t select_play, bool en
         // 先释放锁，再调用销毁（销毁内部自己加锁）
         rt_mutex_release(audio_mutex);
         player_audio_render_destroy();
+        return ret;                      // ✅ 直接返回，不再执行末尾的释放
     }
     rt_mutex_release(audio_mutex); // 函数结尾释放锁
     // ========== 新增：强制清理DFS缓存 ==========

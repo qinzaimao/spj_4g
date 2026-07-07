@@ -19,6 +19,8 @@
 #define MUTICAST_SERVER_PORT  8081
 #define BOARDCAST_SERVER_PORT 8082
 
+#define ERR_OK 0
+
 #define UDP_RECV_BUF_SIZE 4096
 
 void udp_test_unicast_thread(void *para)

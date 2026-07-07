@@ -46,6 +46,7 @@ void video_init(bool play, uint8_t select);
 void video_thread_entry(void *parameter);
 void destroy_video(void);
 void restart_video_thread(void);
+void seek_to_start_play_video(void);
 void create_player();
 void video_set_volume(rt_uint16_t vol);
 int lvgl_play(struct lvgl_player_context *ctx);

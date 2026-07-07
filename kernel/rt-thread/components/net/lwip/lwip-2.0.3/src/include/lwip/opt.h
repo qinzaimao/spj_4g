@@ -981,7 +981,7 @@
 #undef LWIP_IGMP
 #define LWIP_IGMP                       0
 #endif
-
+#define LWIP_IGMP                       1
 /**
  * LWIP_MULTICAST_TX_OPTIONS==1: Enable multicast TX support like the socket options
  * IP_MULTICAST_TTL/IP_MULTICAST_IF/IP_MULTICAST_LOOP
@@ -2564,8 +2564,8 @@
  * - src: source eth address
  * - dst: destination eth address
  * - eth_type: ethernet type to packet to be sent\n
- * 
- * 
+ *
+ *
  * Return values:
  * - &lt;0: Packet shall not contain VLAN header.
  * - 0 &lt;= return value &lt;= 0xFFFF: Packet shall contain VLAN header. Return value is prio_vid in host byte order.
