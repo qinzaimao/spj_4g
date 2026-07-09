@@ -1287,7 +1287,7 @@ void media_import_thread_entry(void *parameter)
 
                         // 进度更新（减少频率）
                         int new_percent = (total_written * 100.0) / usb_filelen;
-                        if (new_percent > read_percent)
+                        if (new_percent != read_percent && (new_percent % 10) == 0)
                         {
                             read_percent = new_percent;
                             rt_kprintf("【视频导入】V%d，进度：%d%%\n", video_num + 1, read_percent);

@@ -158,6 +158,12 @@ static void mouse_read(lv_indev_t *indev_drv, lv_indev_data_t *data)
 
         if ((my_page == PAGE_HOME || my_page == PAGE_HOME_HOR) && MY_SET.play_mode == PLAY_VIDEO)
         {
+            if(is_tcp_connected && MY_SET_DHCP.host_state == true && !video_in_updating)
+            {
+                tcp_send_raw("videodes", 8);
+                last_recv_tick = rt_tick_get();
+                rt_kprintf("videodes\n");
+            }
             rt_kprintf("video_renew = PRINTF_RENEW;\n");
             video_renew = PRINTF_RENEW;
         }
@@ -190,6 +196,12 @@ static void mouse_read(lv_indev_t *indev_drv, lv_indev_data_t *data)
             lv_timer_pause(get_time_timer);
             setup_scr_screen_home(&guider_ui);
             lv_scr_load_anim(guider_ui.screen_home, LV_SCR_LOAD_ANIM_NONE, 0, 0, true);
+            if(is_tcp_connected && MY_SET_DHCP.host_state == true && !video_in_updating)
+            {
+                tcp_send_raw("videodes", 8);
+                last_recv_tick = rt_tick_get();
+                rt_kprintf("videodes\n");
+            }
             if(MY_SET.play_mode == PLAY_VIDEO)
             {
                 rt_kprintf("video_renew = PRINTF_RENEW;\n");
@@ -229,6 +241,12 @@ static void mouse_read(lv_indev_t *indev_drv, lv_indev_data_t *data)
             {
                 rt_kprintf("video_renew = PRINTF_RENEW;\n");
                 video_renew = PRINTF_RENEW;
+            }
+            if(is_tcp_connected && MY_SET_DHCP.host_state == true && !video_in_updating)
+            {
+                tcp_send_raw("videodes", 8);
+                last_recv_tick = rt_tick_get();
+                rt_kprintf("videodes\n");
             }
         }
         else if (my_page == PAGE_VOICE)

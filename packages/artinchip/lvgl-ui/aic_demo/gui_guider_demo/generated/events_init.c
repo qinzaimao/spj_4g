@@ -48,6 +48,12 @@ static void screen_set_btn_return_event_handler (lv_event_t *e)
         lv_timer_pause(set_time_timer);
         lv_timer_pause(get_time_timer);
         ui_load_scr_animation(&guider_ui, &guider_ui.screen_home, guider_ui.screen_home_del, &guider_ui.screen_set_del, setup_scr_screen_home, LV_SCR_LOAD_ANIM_NONE, 0, 0, true, true);
+        if(is_tcp_connected && MY_SET_DHCP.host_state == true && !video_in_updating)
+        {
+            tcp_send_raw("videodes", 8);
+            last_recv_tick = rt_tick_get();
+            rt_kprintf("videodes\n");
+        }
         if(MY_SET.play_mode == PLAY_VIDEO)
         {
             rt_kprintf("video_renew = PRINTF_RENEW;\n");
@@ -127,6 +133,12 @@ static void screen_set_hor_btn_retur_event_handler (lv_event_t *e)
         lv_timer_pause(hor_set_time_timer);
         lv_timer_pause(hor_get_time_timer);
         ui_load_scr_animation(&guider_ui, &guider_ui.screen_home_hor, guider_ui.screen_home_hor_del, &guider_ui.screen_set_hor_del, setup_scr_screen_home_hor, LV_SCR_LOAD_ANIM_NONE, 0, 0, true, true);
+        if(is_tcp_connected && MY_SET_DHCP.host_state == true && !video_in_updating)
+        {
+            tcp_send_raw("videodes", 8);
+            last_recv_tick = rt_tick_get();
+            rt_kprintf("videodes\n");
+        }
         if(MY_SET.play_mode == PLAY_VIDEO)
         {
             rt_kprintf("video_renew = PRINTF_RENEW;\n");

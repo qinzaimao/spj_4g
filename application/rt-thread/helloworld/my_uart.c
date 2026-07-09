@@ -2123,6 +2123,11 @@ void uart_thread_entry(void *parameter)
 
     while (1)
     {
+        if(is_tcp_connected && MY_SET_DHCP.host_state == false)
+        {
+            rt_thread_mdelay(1000);
+            continue;
+        }
         // 业务发送
         if (need_send_data) send_test();
         if (default_set_io_flag)
@@ -2186,7 +2191,7 @@ void uart_thread_entry(void *parameter)
                         if(is_tcp_connected)
                         {
                             tcp_send_raw(valid_frame_buf, 9);
-                            last_recv_tick = rt_tick_get();
+                            // last_recv_tick = rt_tick_get();
                             // rt_thread_mdelay(2);
                         }
                         Cmdparsing(valid_frame_buf);
@@ -2218,7 +2223,7 @@ void uart_thread_entry(void *parameter)
                     if(is_tcp_connected)
                     {
                         tcp_send_raw(valid_frame_buf, 8);
-                        last_recv_tick = rt_tick_get();
+                        // last_recv_tick = rt_tick_get();
                         // rt_thread_mdelay(2);
                     }
                     // 移除已处理帧

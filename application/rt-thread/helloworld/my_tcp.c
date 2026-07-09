@@ -1,33 +1,32 @@
 #include "my_tcp.h"
 
-
 /**
  * MY_SET_DHCP.host_state 动态切换模式
  *
  * true  = TCP客户端：板子主动连接另一块板子TCP服务器
  * false = TCP服务端：板子本机监听1346，等待另一块板子TCP客户端接入
-*/
+ */
 
 // 服务端监听端口
-#define TCP_LISTEN_PORT     1346
-#define TCP_ACCEPT_BACKLOG  2
+#define TCP_LISTEN_PORT 1346
+#define TCP_ACCEPT_BACKLOG 2
 // TCP客户端目标端口
-#define TARGET_TCP_PORT     1346
+#define TARGET_TCP_PORT 1346
 
 // 公共基础配置
-#define TCP_SEND_BUF_LEN    4096
-#define TCP_CONN_DELAY_MS   1000
-#define UART_8BYTE           8
-#define UART_9BYTE           9
+#define TCP_SEND_BUF_LEN 4096
+#define TCP_CONN_DELAY_MS 1000
+#define UART_8BYTE 8
+#define UART_9BYTE 9
 
 // 配置：服务端4秒发一次心跳；客户端9秒无数据超时断开
-#define SERVER_HEART_MS     2500
-#define CLIENT_TIMEOUT_MS   9000
-#define SERVER_HEART_TICK   rt_tick_from_millisecond(SERVER_HEART_MS)
+#define SERVER_HEART_MS 2500
+#define CLIENT_TIMEOUT_MS 9000
+#define SERVER_HEART_TICK rt_tick_from_millisecond(SERVER_HEART_MS)
 #define CLIENT_TIMEOUT_TICK rt_tick_from_millisecond(CLIENT_TIMEOUT_MS)
 
 // 统一心跳包内容
-static const uint8_t tcp_heart_data[] = {0xAB,0xCD,0xEF,0x01};
+static const uint8_t tcp_heart_data[] = {0xAB, 0xCD, 0xEF, 0x01};
 
 static struct tcp_pcb *tcp_listen_pcb = NULL;
 static struct tcp_pcb *tcp_data_pcb = NULL;
@@ -36,12 +35,13 @@ static ip_addr_t target_ip;
 static rt_bool_t last_host_state = RT_FALSE;
 rt_tick_t last_recv_tick = 0;
 // 标记TCP握手完成、链路正式连通
-rt_bool_t is_tcp_connected = RT_FALSE;
+rt_tick_t server_heart_tick = 0;
 // 新增：超时断开标记，不立刻销毁资源
 static rt_bool_t need_close_link = RT_FALSE;
 
 // 环形缓冲区
-typedef struct {
+typedef struct
+{
     uint8_t buf[TCP_SEND_BUF_LEN];
     uint32_t r_ptr;
     uint32_t w_ptr;
@@ -110,6 +110,11 @@ static void ring_buffer_clear(ring_buffer_t *rb)
 // TCP异常断开统一回调
 static void tcp_common_err_cb(void *arg, err_t err)
 {
+    // arg = 本次报错pcb指针，和全局正在使用的pcb不一样直接退出
+    if (tcp_data_pcb != arg)
+    {
+        return;
+    }
     rt_kprintf("[TCP ERROR] 链路异常断开！err=%d 网线拔除/对端强制下线\n", err);
     need_close_link = RT_TRUE;
 }
@@ -127,6 +132,9 @@ static err_t tcp_common_recv_cb(void *arg, struct tcp_pcb *pcb, struct pbuf *p, 
     last_recv_tick = rt_tick_get();
     if (p == NULL || err != ERR_OK)
     {
+        // 新增这一行
+        if (tcp_data_pcb == NULL)
+            return ERR_CLSD;
         rt_kprintf("[TCP RECV] 对端主动发送FIN正常断开连接\n");
         need_close_link = RT_TRUE;
         return ERR_CLSD;
@@ -140,8 +148,6 @@ static err_t tcp_common_recv_cb(void *arg, struct tcp_pcb *pcb, struct pbuf *p, 
     // for (uint16_t i = 0; i < recv_len; i++)
     //     rt_kprintf(" %02X", tcp_down_buf[i]);
     // rt_kprintf("\n");
-
-
 
     // 判断是不是心跳包，是心跳直接丢弃不解析
     if (recv_len == sizeof(tcp_heart_data) && memcmp(tcp_down_buf, tcp_heart_data, sizeof(tcp_heart_data)) == 0)
@@ -174,15 +180,21 @@ static err_t tcp_client_connected_cb(void *arg, struct tcp_pcb *pcb, err_t err)
     }
     rt_kprintf("[TCP CLIENT] ✅ 成功连接对端服务端\n");
     last_recv_tick = rt_tick_get();
-    is_tcp_connected = RT_TRUE;
+    is_tcp_connected = true;
     need_close_link = RT_FALSE;
+
+    // 新增端口复用 + TCP保活
+    pcb->so_options |= SOF_REUSEADDR | SOF_KEEPALIVE;
+    pcb->keep_idle = 4000;
+    pcb->keep_intvl = 1500;
+    pcb->keep_cnt = 3;
 
     return ERR_OK;
 }
 
 err_t tcp_send_raw(uint8_t *buf, uint16_t len)
 {
-    if(!is_tcp_connected || tcp_data_pcb == NULL || need_close_link)
+    if (!is_tcp_connected || tcp_data_pcb == NULL || need_close_link)
         return -1;
     return tcp_write(tcp_data_pcb, buf, len, TCP_WRITE_FLAG_COPY);
 }
@@ -201,59 +213,114 @@ static err_t tcp_server_accept_cb(void *arg, struct tcp_pcb *new_pcb, err_t err)
         tcp_err(tcp_data_pcb, NULL);
         tcp_close(tcp_data_pcb);
         tcp_data_pcb = NULL;
-        is_tcp_connected = RT_FALSE;
+        is_tcp_connected = false;
     }
 
     tcp_data_pcb = new_pcb;
+    tcp_data_pcb->so_options |= SOF_REUSEADDR;
     tcp_err(tcp_data_pcb, tcp_common_err_cb);
     tcp_recv(tcp_data_pcb, tcp_common_recv_cb);
     tcp_sent(tcp_data_pcb, tcp_common_sent_cb);
     last_recv_tick = rt_tick_get();
-    is_tcp_connected = RT_TRUE;
+    is_tcp_connected = true;
     need_close_link = RT_FALSE;
     rt_kprintf("[TCP SERVER] ✅ 对端客户端板子成功接入，链路正式建立\n");
     return ERR_OK;
 }
 
-// 对外TCP发送接口
-err_t tcp_send_data(uint8_t *data, uint16_t len)
-{
-    if (tcp_data_pcb == NULL || data == NULL || len == 0 || need_close_link || !is_tcp_connected)
-    {
-        rt_kprintf("[TCP SEND] 无有效TCP链路/标记待断开,发送数据丢弃\n");
-        return ERR_CONN;
-    }
-
-    if (rt_sem_take(tcp_send_sem, rt_tick_from_millisecond(500)) != RT_EOK)
-    {
-        rt_kprintf("[TCP SEND] 获取发送信号量超时，丢弃发送\n");
-        return ERR_CONN;
-    }
-
-    rt_kprintf("[TCP SEND] 上行发送帧 len=%d data:", len);
-    for (uint16_t i = 0; i < len; i++)
-        rt_kprintf(" %02X", data[i]);
-    rt_kprintf("\n");
-
-    err_t ret = tcp_write(tcp_data_pcb, data, len, TCP_WRITE_FLAG_COPY);
-    if (ret == ERR_OK)
-        tcp_output(tcp_data_pcb);
-    else
-        rt_kprintf("[TCP SEND] 发送缓冲区溢出失败 err:%d\n", ret);
-
-    rt_sem_release(tcp_send_sem);
-    // 本机主动发数据，同样刷新超时计时
-    if(is_tcp_connected)
-        last_recv_tick = rt_tick_get();
-    return ret;
-}
-
+// 协议解析入口：串口数据 / TCP下行数据统一解析
 // 协议解析入口：串口数据 / TCP下行数据统一解析
 void parse_frame_and_tcp_send(uint8_t *recv_buf, uint16_t recv_len)
 {
     for (uint16_t i = 0; i < recv_len; i++)
     {
         ring_buffer_write_byte(&data_ring_buf, recv_buf[i]);
+
+        // ========== 新增：检索环缓末尾5字节是否为 "seek1" ==========
+        if (data_ring_buf.len >= 5)
+        {
+            uint8_t cmd_buf[5] = {0};
+            ring_buffer_read_at(&data_ring_buf, cmd_buf, data_ring_buf.len - 5, 5);
+            if (memcmp(cmd_buf, "seek1", 5) == 0)
+            {
+                rt_kprintf("[TCP CTRL] 识别到指令seek1,从头播放视频\n");
+                if (my_lvgl_player_ctx.player != NULL)
+                {
+                    seek_to_start_play_video();
+                }
+                else
+                {
+                    rt_kprintf("[TCP CTRL] 播放器句柄为空,无法执行seek1\n");
+                }
+                // 消耗掉这5个指令字节
+                ring_buffer_skip(&data_ring_buf, 5);
+                // 跳过后续帧解析，继续下一字节
+                continue;
+            }
+        }
+        if (data_ring_buf.len >= 8)
+        {
+            uint8_t cmd_buf[8] = {0};
+            ring_buffer_read_at(&data_ring_buf, cmd_buf, data_ring_buf.len - 8, 8);
+            if (memcmp(cmd_buf, "play1mp4", 8) == 0 || memcmp(cmd_buf, "play1avi", 8) == 0
+               || memcmp(cmd_buf, "play2mp4", 8) == 0 || memcmp(cmd_buf, "play2avi", 8) == 0
+                || memcmp(cmd_buf, "play3mp4", 8) == 0 || memcmp(cmd_buf, "play3avi", 8) == 0)
+            {
+                if (memcmp(cmd_buf, "play1mp4", 8) == 0)
+                    tcp_video_num = 1;
+                else if (memcmp(cmd_buf, "play1avi", 8) == 0)
+                    tcp_video_num = 2;
+                else if (memcmp(cmd_buf, "play2mp4", 8) == 0)
+                    tcp_video_num = 3;
+                else if (memcmp(cmd_buf, "play2avi", 8) == 0)
+                   tcp_video_num = 4;
+                else if (memcmp(cmd_buf, "play3mp4", 8) == 0)
+                    tcp_video_num = 5;
+                else if (memcmp(cmd_buf, "play3avi", 8) == 0)
+                    tcp_video_num = 6;
+
+                // lvgl_stop(&my_lvgl_player_ctx);
+                // lvgl_play(&my_lvgl_player_ctx);
+                rt_kprintf("[TCP CTRL] 识别到指令play\n");
+                if(video_in_updating) {
+                    tcp_video_num = 0;
+                    rt_kprintf("[TCP CTRL]视频正在更新,不执行\n");
+                }
+                // 消耗掉这5个指令字节
+                ring_buffer_skip(&data_ring_buf, 8);
+                // 跳过后续帧解析，继续下一字节
+                continue;
+            }else if (memcmp(cmd_buf, "videodes", 8) == 0 )
+            {
+                tcp_video_des = true;
+                rt_kprintf("[TCP CTRL] 识别到指令videodes\n");
+                ring_buffer_skip(&data_ring_buf, 8);
+                continue;
+            }else if (memcmp(cmd_buf, "needini1", 8) == 0 || memcmp(cmd_buf, "needini2", 8) == 0
+               || memcmp(cmd_buf, "needini3", 8) == 0 || memcmp(cmd_buf, "needini4", 8) == 0
+              || memcmp(cmd_buf, "needini5", 8) == 0 || memcmp(cmd_buf, "needini6", 8) == 0
+                || memcmp(cmd_buf, "needinit", 8) == 0)
+            {
+                if (memcmp(cmd_buf, "needini1", 8) == 0) tcp_video_num = 1;
+                else if (memcmp(cmd_buf, "needini2", 8) == 0)tcp_video_num = 2;
+                else if (memcmp(cmd_buf, "needini3", 8) == 0)tcp_video_num = 3;
+                else if (memcmp(cmd_buf, "needini4", 8) == 0)tcp_video_num = 4;
+                else if (memcmp(cmd_buf, "needini5", 8) == 0)tcp_video_num = 5;
+                else if (memcmp(cmd_buf, "needini6", 8) == 0)tcp_video_num = 6;
+                else if (memcmp(cmd_buf, "needinit", 8) == 0)tcp_video_num = 0;
+
+                tcp_video_init = true;
+                rt_kprintf("[TCP CTRL] 识别到指令needinit\n");
+                if(video_in_updating)
+                {
+                    tcp_video_num = 0;
+                    tcp_video_init = false;
+                    rt_kprintf("[TCP CTRL] 视频正在更新,不执行\n");
+                }
+                ring_buffer_skip(&data_ring_buf, 8);
+                continue;
+            }
+        }
 
         // 9字节电梯协议帧 0x00起始 0xE6结尾
         if (data_ring_buf.len >= UART_9BYTE)
@@ -268,9 +335,7 @@ void parse_frame_and_tcp_send(uint8_t *recv_buf, uint16_t recv_len)
 
                 if (calc_crc == recv_crc)
                 {
-                    // rt_kprintf("[TCP PARSE] 9字节帧CRC校验通过 calc=%04X recv=%04X\n", calc_crc, recv_crc);
                     Cmdparsing(valid_frame_buf);
-                    // tcp_send_data(valid_frame_buf, UART_9BYTE);
 
                     if (video_udp_state == 1)
                     {
@@ -293,10 +358,6 @@ void parse_frame_and_tcp_send(uint8_t *recv_buf, uint16_t recv_len)
                             rt_kprintf("[TCP CTRL] 播放器句柄为空，无法跳转\n");
                     }
                 }
-                else
-                {
-                    // rt_kprintf("[TCP PARSE] 9字节帧CRC校验失败 calc=%04X recv=%04X\n", calc_crc, recv_crc);
-                }
                 ring_buffer_skip(&data_ring_buf, data_ring_buf.len);
                 continue;
             }
@@ -310,9 +371,7 @@ void parse_frame_and_tcp_send(uint8_t *recv_buf, uint16_t recv_len)
 
             if (valid_frame_buf[0] == 0xAA && valid_frame_buf[1] == 0x56)
             {
-                // rt_kprintf("[TCP PARSE] 解析到8字节版本协议帧\n");
                 process_version_packet(valid_frame_buf);
-                // tcp_send_data(valid_frame_buf, UART_8BYTE);
                 ring_buffer_skip(&data_ring_buf, data_ring_buf.len);
                 continue;
             }
@@ -323,31 +382,31 @@ void parse_frame_and_tcp_send(uint8_t *recv_buf, uint16_t recv_len)
 // 彻底关闭所有TCP资源，重置连接标记
 static void tcp_full_close(void)
 {
-    rt_sem_take(tcp_send_sem, RT_WAITING_FOREVER);
-
-    // 1 先解绑回调、关闭PCB
-    if (tcp_data_pcb != NULL)
+    // 只尝试获取，超时直接跳过，绝对不release
+    if (rt_sem_take(tcp_send_sem, rt_tick_from_millisecond(1000)) == RT_EOK)
     {
-        tcp_recv(tcp_data_pcb, NULL);
-        tcp_sent(tcp_data_pcb, NULL);
-        tcp_err(tcp_data_pcb, NULL);
-        tcp_close(tcp_data_pcb);
-        // 【关键】关闭后立刻置空全局指针，杜绝野指针二次操作
-        tcp_data_pcb = NULL;
-    }
-    if (tcp_listen_pcb != NULL)
-    {
-        tcp_close(tcp_listen_pcb);
-        tcp_listen_pcb = NULL;
-    }
+        // 拿到锁才执行销毁
+        if (tcp_data_pcb != NULL)
+        {
+            tcp_recv(tcp_data_pcb, NULL);
+            tcp_sent(tcp_data_pcb, NULL);
+            tcp_err(tcp_data_pcb, NULL);
+            tcp_close(tcp_data_pcb);
+            tcp_data_pcb = NULL;
+        }
+        if (tcp_listen_pcb != NULL)
+        {
+            tcp_close(tcp_listen_pcb);
+            tcp_listen_pcb = NULL;
+        }
+        ring_buffer_clear(&data_ring_buf);
+        need_close_link = RT_FALSE;
+        rt_thread_mdelay(500);
+        is_tcp_connected = false;
 
-    ring_buffer_clear(&data_ring_buf);
-    need_close_link = RT_FALSE;
-    // 标志位最后再改，防止上层业务瞬间误判
-    rt_thread_mdelay(500);
-    is_tcp_connected = RT_FALSE;
-
-    rt_sem_release(tcp_send_sem);
+        rt_sem_release(tcp_send_sem);
+    }
+    // 拿锁失败：直接return，不做任何release
     rt_kprintf("[TCP SWITCH] 旧模式TCP资源全部释放完毕\n");
 }
 
@@ -365,7 +424,7 @@ void tcp_info_thread_entry(void *parameter)
     }
     last_host_state = MY_SET_DHCP.host_state;
     last_recv_tick = rt_tick_get();
-    is_tcp_connected = RT_FALSE;
+    is_tcp_connected = false;
     need_close_link = RT_FALSE;
     rt_kprintf("[TCP THREAD] TCP双板互测线程启动，初始模式:%s\n", last_host_state ? "TCP客户端(主动连另一块板)" : "TCP服务端(等待另一块板接入)");
 
@@ -392,7 +451,7 @@ void tcp_info_thread_entry(void *parameter)
         rt_tick_t now_tick = rt_tick_get();
 
         // ========== 客户端：超时先让出CPU再标记断开，禁止连续循环抢占 ==========
-        if (MY_SET_DHCP.host_state == RT_TRUE && tcp_data_pcb != NULL && is_tcp_connected == RT_TRUE)
+        if (MY_SET_DHCP.host_state == RT_TRUE && tcp_data_pcb != NULL && is_tcp_connected)
         {
             if ((now_tick - last_recv_tick) > CLIENT_TIMEOUT_TICK)
             {
@@ -405,22 +464,27 @@ void tcp_info_thread_entry(void *parameter)
         }
 
         // ========== 服务端：接入后每4秒定时发送心跳包 ==========
-        if (MY_SET_DHCP.host_state == RT_FALSE && tcp_data_pcb != NULL && is_tcp_connected == RT_TRUE)
+        // ========== 服务端：固定2.5s强制发心跳，不受接收数据影响 ==========
+        if (MY_SET_DHCP.host_state == RT_FALSE && tcp_data_pcb != NULL && is_tcp_connected)
         {
-            if ((now_tick - last_recv_tick) > SERVER_HEART_TICK)
+            rt_tick_t now_tick = rt_tick_get();
+            if ((now_tick - server_heart_tick) > SERVER_HEART_TICK)
             {
-                rt_sem_take(tcp_send_sem, RT_WAITING_FOREVER);
-                err_t ret = tcp_write(tcp_data_pcb, tcp_heart_data, sizeof(tcp_heart_data), TCP_WRITE_FLAG_COPY);
-                if (ret == ERR_OK)
+                if (rt_sem_take(tcp_send_sem, rt_tick_from_millisecond(500)) == RT_EOK)
                 {
-                    tcp_output(tcp_data_pcb);
-                    rt_kprintf("[TCP SERVER] 定时2.5s心跳包发送: ");
-                    for (int i = 0; i < sizeof(tcp_heart_data); i++)
-                        rt_kprintf("%02X ", tcp_heart_data[i]);
-                    rt_kprintf("\n");
+                    err_t ret = tcp_write(tcp_data_pcb, tcp_heart_data, sizeof(tcp_heart_data), TCP_WRITE_FLAG_COPY);
+                    if (ret == ERR_OK)
+                    {
+                        tcp_output(tcp_data_pcb);
+                        rt_kprintf("[TCP SERVER] 定时2.5s心跳包发送: ");
+                        for (int i = 0; i < sizeof(tcp_heart_data); i++)
+                            rt_kprintf("%02X ", tcp_heart_data[i]);
+                        rt_kprintf("\n");
+                    }
+                    rt_sem_release(tcp_send_sem);
                 }
-                rt_sem_release(tcp_send_sem);
-                last_recv_tick = now_tick;
+                // 刷新心跳专属计时器
+                server_heart_tick = now_tick;
             }
         }
 
@@ -430,7 +494,7 @@ void tcp_info_thread_entry(void *parameter)
             tcp_full_close();
             last_host_state = MY_SET_DHCP.host_state;
             rt_kprintf("[TCP SWITCH] 检测到host_state变更，切换为：%s\n",
-                        last_host_state ? "TCP客户端(主动连接对端板子)" : "TCP服务端(等待对端板子接入)");
+                       last_host_state ? "TCP客户端(主动连接对端板子)" : "TCP服务端(等待对端板子接入)");
         }
 
         // ===================== TCP客户端逻辑 =====================

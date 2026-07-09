@@ -57,6 +57,7 @@
 #include "weather.h"
 #include "udp_rec.h"
 #include "my_tcp.h"
+#include "tcp_video.h"
 
 #define CONN(x, y) x#y
 #define LVGL_DIRR "L:" LVGL_STORAGE_PATH "/"
@@ -68,7 +69,7 @@
 #define LVGL_PCM_PATH LVGL_STORAGE_PATH"/pcm/"
 #define PCM_PATH(y) CONN(LVGL_PCM_PATH, y)
 
-#define VERSION_DATE "Ver: 1.0 (20260707)"
+#define VERSION_DATE "Ver: 1.0 (20260709)"
 
 //我用 1 ，客户 0
 #define MY_USE 1
@@ -114,6 +115,9 @@ extern char mask_str[20];
 extern char gateway_str[20];
 extern volatile bool wait_uart_init_flag, weather_erro_flag;
 extern volatile bool get_lwip_flag, start_set_lwip_flag, change_weather_flag, geted_weather_flag;
+extern volatile bool tcp_video_init;
+extern volatile bool tcp_video_des;
+extern volatile uint8_t tcp_video_num;
 /*********************主页面部分******************************/
 typedef struct {
     int32_t x;
@@ -152,6 +156,8 @@ typedef struct {
 }cnt_t;
 extern cnt_t my_cnt;
 extern weather_t my_weather;
+extern volatile bool create_player_flag;
+extern volatile uint8_t play_num;
 extern volatile bool in_update_video_flag,update_video_type_erro_flag;
 extern volatile bool home_hor_video_flag, home_video_flag;
 extern volatile bool show_video_label_flag;
@@ -233,7 +239,7 @@ extern SET_T MY_SET;
 extern SET_IMAGE_T MY_SET_IMAGE;
 extern SET_DHCP_T MY_SET_DHCP;
 
-extern rt_bool_t is_tcp_connected;
+extern volatile  bool is_tcp_connected;
 
 extern volatile bool reset_time_flag, uart_v_flag, set_volume_flag;
 extern volatile uint8_t day_reset_time;
