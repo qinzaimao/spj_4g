@@ -1024,7 +1024,8 @@ void Cmdparsing(rt_uint8_t *buf)
         // rt_kprintf("数据未更新\n");
         return;
     }
-
+    if(is_tcp_connected && MY_SET_DHCP.host_state == true && !video_in_updating)
+        rt_thread_mdelay(100);
     // rt_kprintf("数据有变化\n");
     memset(pre_eledata, 0, sizeof(pre_eledata));
     memcpy(pre_eledata, buf, sizeof(pre_eledata));
@@ -2190,9 +2191,9 @@ void uart_thread_entry(void *parameter)
                     {
                         if(is_tcp_connected)
                         {
-                            tcp_send_raw(valid_frame_buf, 9);
-                            // last_recv_tick = rt_tick_get();
-                            // rt_thread_mdelay(2);
+                            // 跳过帧头0x00，截取中间7个有效数据
+                            tcp_send_raw(&valid_frame_buf[1], 6);
+                            // rt_thread_mdelay(50); // 2ms延时
                         }
                         Cmdparsing(valid_frame_buf);
                     }

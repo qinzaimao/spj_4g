@@ -714,6 +714,7 @@ void aicphy_poll_thread(void *pvParameters)
         } else {
             pr_info(" Port %d link DOWN!\n", (int)port);
              get_lwip_flag = false;
+             is_tcp_connected = false;
             /* Disable MAC and DMA transmission and reception */
             aicmac_stop(port);
 

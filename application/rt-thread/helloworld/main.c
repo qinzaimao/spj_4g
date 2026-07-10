@@ -41,6 +41,7 @@ volatile bool is_tcp_connected = false;
 volatile bool tcp_video_init = false;
 volatile bool tcp_video_des = false;
 volatile uint8_t tcp_video_num = 0;
+volatile uint8_t tcp_img_num = 0;
 /*********************主页面部分******************************/
 image_num_pos_t image_num_pos[3] = {{0, 0}, {0, 0}, {0, 0}}; //记录楼层图片位置
 volatile bool init_set_img_ok = false;                      // 视频正在更新
@@ -156,7 +157,7 @@ SET_TIME_T MY_SET_TIME = {2025, 6, 30, 12, 10, 5}; // 当前时间
 #endif
 //                           选择的图片、     logo、      箭头
 #if MY_USE
-SET_IMAGE_T MY_SET_IMAGE = {IMAGE_C404_hor, LOGO_XIO, ARROW_XIO};
+SET_IMAGE_T MY_SET_IMAGE = {IMAGE_C401_ver, LOGO_XIO, ARROW_XIO};
 #else
 SET_IMAGE_T MY_SET_IMAGE = {IMAGE_C401_ver, LOGO_XIO, ARROW_XIO};
 #endif
@@ -340,10 +341,13 @@ static void init_main(void)
 
     if(!page_play_mode[txt_update_page_num])
     {
-        if( MY_SET_IMAGE.image == IMAGE_C201_hor || MY_SET_IMAGE.image == IMAGE_C202_hor ||
+        if(  MY_SET_IMAGE.image == IMAGE_C202_hor ||
         MY_SET_IMAGE.image == IMAGE_C301_hor || MY_SET_IMAGE.image == IMAGE_C302_hor ||
         MY_SET_IMAGE.image == IMAGE_C303_hor ||
-        MY_SET_IMAGE.image == IMAGE_C404_hor || MY_SET_IMAGE.image == IMAGE_C404_ver)
+        MY_SET_IMAGE.image == IMAGE_C404_hor || MY_SET_IMAGE.image == IMAGE_C404_ver
+         || MY_SET_IMAGE.image == IMAGE_C201_hor
+        ||MY_SET_IMAGE.image == IMAGE_C401_ver
+)
         {
             MY_SET.play_mode = PLAY_VIDEO;
 

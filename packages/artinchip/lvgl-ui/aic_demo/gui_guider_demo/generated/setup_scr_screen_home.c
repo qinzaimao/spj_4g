@@ -271,6 +271,8 @@ static void set_time_callback(lv_timer_t *timer)
 }
 static void refresh_picture_callback(lv_timer_t *timer)
 {
+    static bool tcp_raw_flag = false;
+    static uint8_t show_image_num = 1;
     static uint8_t time_cnt = 0;
     static uint8_t time_cnt2 = 0;
     static uint8_t image_cnt_temp = 1;
@@ -390,48 +392,60 @@ static void refresh_picture_callback(lv_timer_t *timer)
         // lv_image_cache_drop(lv_img_get_src(guider_ui.screen_home_img_background));
         lv_img_set_src(guider_ui.screen_home_img_background, image_filename[MY_SET_IMAGE.image - 1]);
     }
-    if (++time_cnt >= 25)
+    if (MY_SET.play_mode == PLAY_IMAGE && page_image_cnt[update_page_num])
     {
-        time_cnt = 0;
-        if (MY_SET.play_mode == PLAY_IMAGE && page_image_cnt[update_page_num])
+        if(is_tcp_connected && MY_SET_DHCP.host_state == false && !video_in_updating)
         {
-            const char *ext = ".jpg"; // 默认扩展名
-            // 构建示例路径来获取扩展名
-            char temp_path[30];
-            sprintf(temp_path, "%s%d.png", image_flash_path_prefix[update_page_num], image_cnt_temp);
-            if (access(temp_path, 0) == 0)
-                ext = ".png";
-            else
+
+        }else
+        {
+            if (time_cnt >= 23 && !tcp_raw_flag)
             {
-                sprintf(temp_path, "%s%d.jpg", image_flash_path_prefix[update_page_num], image_cnt_temp);
+                if (image_cnt_temp >= page_image_cnt[update_page_num])
+                   image_cnt_temp = 0;
+                if(is_tcp_connected && MY_SET_DHCP.host_state == true && !video_in_updating)
+                {
+                    tcp_raw_flag = true;
+                    char tcp_temp[5] = {0};
+                    sprintf(tcp_temp, "ida%d", image_cnt_temp);
+                    tcp_send_raw(tcp_temp, 4);
+                }
+            }
+            if (++time_cnt >= 25)
+            {
+                time_cnt = 0;
+                tcp_raw_flag = false;
+                const char *ext = ".jpg"; // 默认扩展名
+                // 构建示例路径来获取扩展名
+                char temp_path[30];
+                sprintf(temp_path, "%s%d.png", image_flash_path_prefix[update_page_num], image_cnt_temp);
                 if (access(temp_path, 0) == 0)
+                ext = ".png";
+                else
+                {
+                    sprintf(temp_path, "%s%d.jpg", image_flash_path_prefix[update_page_num], image_cnt_temp);
+                    if (access(temp_path, 0) == 0)
                     ext = ".jpg";
-                // else
-                // {
-                //     sprintf(temp_path, "%s%d.bmp", image_flash_path_prefix[update_page_num], image_cnt_temp);
-                //     if (access(temp_path, 0) == 0)
-                //         ext = ".bmp";
-                // }
-            }
-            // 构建最新图片路径（假设最后一个导入的图片为当前显示图片）
-            sprintf(current_image_path, "L:%s%d%s", image_flash_path_prefix[update_page_num], image_cnt_temp, ext);
-            rt_kprintf("image_path:%s\n", current_image_path);
-            if (++image_cnt_temp >= page_image_cnt[update_page_num])
-                image_cnt_temp = 0;
-            // 刷新图片
-            if (MY_SET_IMAGE.image == IMAGE_C404_ver)
-            {
-                lv_image_cache_drop(lv_img_get_src(guider_ui.screen_home_img_img));
-                lv_img_set_src(guider_ui.screen_home_img_img, current_image_path);
-                lv_image_set_inner_align(guider_ui.screen_home_img_img, LV_IMAGE_ALIGN_STRETCH);
-                // lv_img_set_src(guider_ui.screen_home_img_img, current_image_path);
-            }
-            else
-            {
-                // lv_img_set_src(guider_ui.screen_home_img_background, current_image_path);
-                lv_image_cache_drop(lv_img_get_src(guider_ui.screen_home_img_background));
-                lv_img_set_src(guider_ui.screen_home_img_background, current_image_path);
-                lv_image_set_inner_align(guider_ui.screen_home_img_background, LV_IMAGE_ALIGN_STRETCH);
+                }
+                // 构建最新图片路径（假设最后一个导入的图片为当前显示图片）
+                sprintf(current_image_path, "L:%s%d%s", image_flash_path_prefix[update_page_num], image_cnt_temp, ext);
+                rt_kprintf("image_path:%s\n", current_image_path);
+                image_cnt_temp ++;
+                // 刷新图片
+                if (MY_SET_IMAGE.image == IMAGE_C404_ver)
+                {
+                    lv_image_cache_drop(lv_img_get_src(guider_ui.screen_home_img_img));
+                    lv_img_set_src(guider_ui.screen_home_img_img, current_image_path);
+                    lv_image_set_inner_align(guider_ui.screen_home_img_img, LV_IMAGE_ALIGN_STRETCH);
+                    // lv_img_set_src(guider_ui.screen_home_img_img, current_image_path);
+                }
+                else
+                {
+                    // lv_img_set_src(guider_ui.screen_home_img_background, current_image_path);
+                    lv_image_cache_drop(lv_img_get_src(guider_ui.screen_home_img_background));
+                    lv_img_set_src(guider_ui.screen_home_img_background, current_image_path);
+                    lv_image_set_inner_align(guider_ui.screen_home_img_background, LV_IMAGE_ALIGN_STRETCH);
+                }
             }
         }
 
@@ -441,26 +455,41 @@ static void refresh_picture_callback(lv_timer_t *timer)
         if(MY_SET_IMAGE.image == IMAGE_C401_ver || MY_SET_IMAGE.image == IMAGE_C402_ver ||
            MY_SET_IMAGE.image == IMAGE_C403_ver || MY_SET_IMAGE.image == IMAGE_C404_ver)
         {
-            if (++time_cnt2 >= 25)
+            if(is_tcp_connected && MY_SET_DHCP.host_state == false && !video_in_updating)
             {
-                time_cnt2 = 0;
-                static uint8_t show_image_num = 1;
-                if(show_image_num >= 4) show_image_num = 0;
-                // lv_image_cache_drop(lv_img_get_src(guider_ui.screen_home_img_background));
-                if(MY_SET_IMAGE.image == IMAGE_C401_ver)
+
+            }else{
+                if (time_cnt2 >= 23 && !tcp_raw_flag)
                 {
-                    lv_img_set_src(guider_ui.screen_home_img_background, image_flash_c403_ver[show_image_num]);
-                }else if(MY_SET_IMAGE.image == IMAGE_C402_ver)
-                {
-                    lv_img_set_src(guider_ui.screen_home_img_background, image_flash_c403_ver[show_image_num]);
-                }else if(MY_SET_IMAGE.image == IMAGE_C403_ver)
-                {
-                    lv_img_set_src(guider_ui.screen_home_img_background, image_flash_c403_ver[show_image_num]);
-                }else if(MY_SET_IMAGE.image == IMAGE_C404_ver)
-                {
-                    lv_img_set_src(guider_ui.screen_home_img_img, image_flash_c403_ver[show_image_num]);
+                    if(show_image_num >= 4) show_image_num = 0;
+                    if(is_tcp_connected && MY_SET_DHCP.host_state == true && !video_in_updating)
+                    {
+                        tcp_raw_flag = true;
+                        char tcp_temp[5] = {0};
+                        sprintf(tcp_temp, "img%d", show_image_num);
+                        tcp_send_raw(tcp_temp, 4);
+                    }
                 }
-                show_image_num ++;
+                if (++time_cnt2 >= 25)
+                {
+                    time_cnt2 = 0;
+                    tcp_raw_flag = false;
+                    // lv_image_cache_drop(lv_img_get_src(guider_ui.screen_home_img_background));
+                    if(MY_SET_IMAGE.image == IMAGE_C401_ver)
+                    {
+                        lv_img_set_src(guider_ui.screen_home_img_background, image_flash_c403_ver[show_image_num]);
+                    }else if(MY_SET_IMAGE.image == IMAGE_C402_ver)
+                    {
+                        lv_img_set_src(guider_ui.screen_home_img_background, image_flash_c403_ver[show_image_num]);
+                    }else if(MY_SET_IMAGE.image == IMAGE_C403_ver)
+                    {
+                        lv_img_set_src(guider_ui.screen_home_img_background, image_flash_c403_ver[show_image_num]);
+                    }else if(MY_SET_IMAGE.image == IMAGE_C404_ver)
+                    {
+                        lv_img_set_src(guider_ui.screen_home_img_img, image_flash_c403_ver[show_image_num]);
+                    }
+                    show_image_num ++;
+                }
             }
         }
     }
@@ -1219,6 +1248,65 @@ static void frist_callback(lv_timer_t *timer)
         lv_img_set_src(guider_ui.screen_home_img_num3, image_num_c4_filename[show_floor_num[2]]);
         lv_refr_now(NULL);
         lv_timer_handler();
+    }
+
+    static uint8_t last_tcp_num = 11;
+    if(is_tcp_connected && MY_SET_DHCP.host_state == false && !video_in_updating)
+    {
+        if(!page_image_cnt[update_page_num] && MY_SET.play_mode == PLAY_IMAGE)
+        {
+            if(tcp_img_num && last_tcp_num != tcp_img_num)
+            {
+                last_tcp_num = tcp_img_num;
+                if(MY_SET_IMAGE.image == IMAGE_C401_ver || MY_SET_IMAGE.image == IMAGE_C402_ver ||
+                   MY_SET_IMAGE.image == IMAGE_C403_ver)
+                {
+                    lv_img_set_src(guider_ui.screen_home_img_background, image_flash_c403_ver[tcp_img_num - 1]);
+                }else if(MY_SET_IMAGE.image == IMAGE_C404_ver)
+                {
+                    lv_img_set_src(guider_ui.screen_home_img_img, image_flash_c403_ver[tcp_img_num - 1]);
+                }
+            }
+        }
+        else if(page_image_cnt[update_page_num] && MY_SET.play_mode == PLAY_IMAGE)
+        {
+            if(tcp_img_num && last_tcp_num != tcp_img_num)
+            {
+                last_tcp_num = tcp_img_num;
+                const char *ext = ".jpg"; // 默认扩展名
+                // 构建示例路径来获取扩展名
+                char temp_path[30];
+                sprintf(temp_path, "%s%d.png", image_flash_path_prefix[update_page_num], tcp_img_num - 1);
+                if (access(temp_path, 0) == 0)
+                ext = ".png";
+                else
+                {
+                    sprintf(temp_path, "%s%d.jpg", image_flash_path_prefix[update_page_num], tcp_img_num - 1);
+                    if (access(temp_path, 0) == 0)
+                    ext = ".jpg";
+                }
+                // 构建最新图片路径（假设最后一个导入的图片为当前显示图片）
+                char current_image_path[50] = {0};
+                sprintf(current_image_path, "L:%s%d%s", image_flash_path_prefix[update_page_num], tcp_img_num - 1, ext);
+                rt_kprintf("image_path:%s\n", current_image_path);
+                // image_cnt_temp ++;
+                // 刷新图片
+                if (MY_SET_IMAGE.image == IMAGE_C404_ver)
+                {
+                    lv_image_cache_drop(lv_img_get_src(guider_ui.screen_home_img_img));
+                    lv_img_set_src(guider_ui.screen_home_img_img, current_image_path);
+                    lv_image_set_inner_align(guider_ui.screen_home_img_img, LV_IMAGE_ALIGN_STRETCH);
+                    // lv_img_set_src(guider_ui.screen_home_img_img, current_image_path);
+                }
+                else
+                {
+                    // lv_img_set_src(guider_ui.screen_home_img_background, current_image_path);
+                    lv_image_cache_drop(lv_img_get_src(guider_ui.screen_home_img_background));
+                    lv_img_set_src(guider_ui.screen_home_img_background, current_image_path);
+                    lv_image_set_inner_align(guider_ui.screen_home_img_background, LV_IMAGE_ALIGN_STRETCH);
+                }
+            }
+        }
     }
 }
 

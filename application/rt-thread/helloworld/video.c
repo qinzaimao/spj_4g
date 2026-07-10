@@ -856,38 +856,38 @@ void user_play_video(void)
                 if (page_mp4_update_flag[0][update_page_num] && play_num != 1 && play_num != 2)
                 {
                     // tcp_video_num = 1;
-                    tcp_send_raw("needini1", 8);
+                    tcp_send_raw("vin1", 4);
                 }
                 else if (page_avi_update_flag[0][update_page_num] && play_num != 1 && play_num != 2)
                 {
                     // tcp_video_num = 2;
-                    tcp_send_raw("needini2", 8);
+                    tcp_send_raw("vin2", 4);
                 }
                 else if (page_mp4_update_flag[1][update_page_num] && play_num != 2)
                 {
                     // tcp_video_num = 3;
-                    tcp_send_raw("needini3", 8);
+                    tcp_send_raw("vin3", 4);
                 }
                 else if (page_avi_update_flag[1][update_page_num] && play_num != 2)
                 {
                     // tcp_video_num = 4;
-                    tcp_send_raw("needini4", 8);
+                    tcp_send_raw("vin4", 4);
                 }
                 else if (page_mp4_update_flag[2][update_page_num] && play_num != 3)
                 {
                     // tcp_video_num = 5;
-                    tcp_send_raw("needini5", 8);
+                    tcp_send_raw("vin5", 4);
                 }
                 else if (page_avi_update_flag[2][update_page_num] && play_num != 3)
                 {
                     // tcp_video_num = 6;
-                    tcp_send_raw("needini6", 8);
+                    tcp_send_raw("vin6", 4);
                 }
             }else{
-                tcp_send_raw("needinit", 8);
+                tcp_send_raw("vint", 4);
             }
             last_recv_tick = rt_tick_get();
-            rt_kprintf("needinit\n");
+            rt_kprintf("vint\n");
             rt_thread_mdelay(500);
         }
         if (MY_SET_IMAGE.image == IMAGE_C201_hor || MY_SET_IMAGE.image == IMAGE_C202_hor ||
@@ -1142,36 +1142,36 @@ void video_thread_entry(void *parameter)
                     {
                         if (page_mp4_update_flag[0][update_page_num] && play_num != 1 && play_num != 2)
                         {
-                            tcp_send_raw("play1mp4", 8);
-                            rt_kprintf("发送 play1mp4\n");
+                            tcp_send_raw("v1mp", 4);
+                            rt_kprintf("发送 v1mp\n");
                         }
                         else if (page_avi_update_flag[0][update_page_num] && play_num != 1 && play_num != 2)
                         {
-                            tcp_send_raw("play1avi", 8);
-                            rt_kprintf("发送 play1avi\n");
+                            tcp_send_raw("v1av", 4);
+                            rt_kprintf("发送 v1av\n");
                         }
                         else if (page_mp4_update_flag[1][update_page_num] && play_num != 2)
                         {
-                            tcp_send_raw("play2mp4", 8);
-                            rt_kprintf("发送 play2mp4\n");
+                            tcp_send_raw("v2mp", 4);
+                            rt_kprintf("发送 v2mp\n");
                         }
                         else if (page_avi_update_flag[1][update_page_num] && play_num != 2)
                         {
-                           tcp_send_raw("play2avi", 8);
-                           rt_kprintf("发送 play2avi\n");
+                           tcp_send_raw("v2av", 4);
+                           rt_kprintf("发送 v2av\n");
                         }
                         else if (page_mp4_update_flag[2][update_page_num] && play_num != 3)
                         {
-                            tcp_send_raw("play3mp4", 8);
-                            rt_kprintf("发送 play3mp4\n");
+                            tcp_send_raw("v3mp", 4);
+                            rt_kprintf("发送 v3mp\n");
                         }
                         else if (page_avi_update_flag[2][update_page_num] && play_num != 3)
                         {
-                            tcp_send_raw("play3avi", 8);
-                            rt_kprintf("发送 play3avi\n");
+                            tcp_send_raw("v3av", 4);
+                            rt_kprintf("发送 v3av\n");
                         }
                         last_recv_tick = rt_tick_get();
-                        rt_thread_mdelay(400);
+                        rt_thread_mdelay(200);
                     }
                     rt_kprintf("[多视频] 电梯音频播放完毕，开始切换\n");
                     lvgl_stop(&my_lvgl_player_ctx);
@@ -1217,7 +1217,7 @@ void video_thread_entry(void *parameter)
                     {
                         if(is_tcp_connected && MY_SET_DHCP.host_state == true && !video_in_updating)
                         {
-                            tcp_send_raw("seek1", 5);
+                            tcp_send_raw("seek", 4);
                             last_recv_tick = rt_tick_get();
                             rt_thread_mdelay(100);
                             rt_kprintf("发送seek 1\n");
@@ -1316,13 +1316,74 @@ void video_thread_entry(void *parameter)
             frist_tcp_flag = true;
             if(MY_SET_DHCP.host_state == true)
             {
-                tcp_send_raw("seek1", 5);
-                last_recv_tick = rt_tick_get();
-                rt_thread_mdelay(100);
-                seek_to_start_play_video();
-                rt_mutex_take(elevtor_mutex, RT_WAITING_FOREVER);
-                need_to_play_video_flag = false;
-                rt_mutex_release(elevtor_mutex);
+                uint8_t num = page_mp4_update_flag[0][update_page_num] + page_mp4_update_flag[1][update_page_num] + page_mp4_update_flag[2][update_page_num] +
+                                  page_avi_update_flag[0][update_page_num] + page_avi_update_flag[1][update_page_num] + page_avi_update_flag[2][update_page_num];
+                if (num <= 1)
+                {
+                    tcp_send_raw("seek", 4);
+                    last_recv_tick = rt_tick_get();
+                    rt_thread_mdelay(100);
+                    seek_to_start_play_video();
+                    rt_mutex_take(elevtor_mutex, RT_WAITING_FOREVER);
+                    need_to_play_video_flag = false;
+                    rt_mutex_release(elevtor_mutex);
+                }else
+                {
+                    while(1)
+                    {
+                        rt_mutex_take(elevtor_mutex, RT_WAITING_FOREVER);
+                        bool wait_elevator_temp = wait_elevtor_flag;
+                        rt_mutex_release(elevtor_mutex);
+
+                        if(!wait_elevator_temp) break;
+                        rt_thread_mdelay(50);
+                    }
+
+                    if (page_mp4_update_flag[0][update_page_num] && play_num != 1 && play_num != 2)
+                    {
+                        tcp_send_raw("v1mp", 4);
+                        rt_kprintf("发送 v1mp\n");
+                    }
+                    else if (page_avi_update_flag[0][update_page_num] && play_num != 1 && play_num != 2)
+                    {
+                        tcp_send_raw("v1av", 4);
+                        rt_kprintf("发送 v1av\n");
+                    }
+                    else if (page_mp4_update_flag[1][update_page_num] && play_num != 2)
+                    {
+                        tcp_send_raw("v2mp", 4);
+                        rt_kprintf("发送 v2mp\n");
+                    }
+                    else if (page_avi_update_flag[1][update_page_num] && play_num != 2)
+                    {
+                        tcp_send_raw("v2av", 4);
+                        rt_kprintf("发送 v2av\n");
+                    }
+                    else if (page_mp4_update_flag[2][update_page_num] && play_num != 3)
+                    {
+                        tcp_send_raw("v3mp", 4);
+                        rt_kprintf("发送 v3mp\n");
+                    }
+                    else if (page_avi_update_flag[2][update_page_num] && play_num != 3)
+                    {
+                        tcp_send_raw("v3av", 4);
+                        rt_kprintf("发送 v3av\n");
+                    }
+                    last_recv_tick = rt_tick_get();
+                    rt_thread_mdelay(100);
+                    rt_kprintf("[多视频] 电梯音频播放完毕，开始切换\n");
+                    lvgl_stop(&my_lvgl_player_ctx);
+                    lvgl_play(&my_lvgl_player_ctx);
+
+                    rt_mutex_take(video_mutex, RT_WAITING_FOREVER);
+                    last_play_tick = rt_tick_get();
+                    have_two_video_flag = false;    // ✅ 新增：重置多视频标志
+                    rt_mutex_release(video_mutex);
+                    rt_mutex_take(elevtor_mutex, RT_WAITING_FOREVER);
+                    need_to_play_video_flag = false;
+                    rt_mutex_release(elevtor_mutex);
+                    continue;
+                }
             }
         }else if(!is_tcp_connected && frist_tcp_flag)
         {
