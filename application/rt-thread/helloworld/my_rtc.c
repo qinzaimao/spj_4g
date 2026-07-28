@@ -26,7 +26,7 @@ void rtc_thread_entry(void *parameter)
     static char my_str[30] = {0};
     static time_t energy_conservation_start = 0; // 记录开始计时的RTC时间（秒）
     static time_t last_checked_time = 0;         // 上一次检查的时间
-    rt_thread_mdelay(1000);
+    rt_thread_mdelay(100);
 
     // 先获取当前RTC时间
     now = time(RT_NULL);
@@ -125,13 +125,24 @@ void rtc_thread_entry(void *parameter)
             // 累计时间达到15分钟，进入节能模式
             if (accumulated_seconds >= (60 * 15))
             {
+
                 in_arr_flag = false;
                 memset(&my_cnt, 0, sizeof(my_cnt));
                 accumulated_seconds = 0;
                 rt_kprintf("15分钟没有信号 进入节能模式\n");
                 if (!energy_show_image_flag)
                     energy_show_image_flag = true;
-                backlight_set(MY_SET.e_con_backlight);
+                if (is_tcp_connected && MY_SET_DHCP.host_state == false)
+                {
+
+                }else{
+                    backlight_set(MY_SET.e_con_backlight);
+                }
+                if (is_tcp_connected && MY_SET_DHCP.host_state == true)
+                {
+                    send_light(true, MY_SET.e_con_backlight);
+                }
+
                 music_renew_flag = true;
                 energy_conservation = true;
             }
@@ -141,7 +152,16 @@ void rtc_thread_entry(void *parameter)
             if (energy_conservation) // 退出节能模式
             {
                 break_energy_flag = true;
-                backlight_set(MY_SET.backlight);
+                if (is_tcp_connected && MY_SET_DHCP.host_state == false)
+                {
+
+                }else{
+                    backlight_set(MY_SET.backlight);
+                }
+                if (is_tcp_connected && MY_SET_DHCP.host_state == true)
+                {
+                    send_light(false, MY_SET.backlight);
+                }
                 energy_conservation = false;
                 if (energy_show_image_flag)
                     energy_show_image_flag = false;
@@ -156,7 +176,16 @@ void rtc_thread_entry(void *parameter)
             break_energy_flag = true;
             elevator_change_flag = false;
             accumulated_seconds = 0;
-            backlight_set(MY_SET.backlight);
+            if (is_tcp_connected && MY_SET_DHCP.host_state == false)
+            {
+
+            }else{
+                backlight_set(MY_SET.backlight);
+            }
+            if (is_tcp_connected && MY_SET_DHCP.host_state == true)
+            {
+                send_light(false, MY_SET.backlight);
+            }
             if (energy_show_image_flag)
                 energy_show_image_flag = false;
             rt_kprintf("退出节能模式\n");

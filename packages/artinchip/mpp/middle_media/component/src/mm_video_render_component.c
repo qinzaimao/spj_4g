@@ -1325,8 +1325,10 @@ mm_vdieo_render_process_video_sync(mm_video_render_data *p_video_render_data,
     }
 
     if (delay_time > 3 * MM_VIDEO_SYNC_DIFF_TIME) {
+        // rt_kprintf("delay1 1\n");
         sync_type = MM_VIDEO_SYNC_DELAY;
     } else if (delay_time > (-3) * MM_VIDEO_SYNC_DIFF_TIME) {
+        // rt_kprintf("delay1 2\n");
         sync_type = MM_VIDEO_SYNC_SHOW;
     } else {
         sync_type = MM_VIDEO_SYNC_SHOW;

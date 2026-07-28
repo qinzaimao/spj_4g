@@ -1011,6 +1011,9 @@ s32 player_audio_render_share_play(uint8_t volume, uint16_t select_play, bool en
         if (init_audio_renderer()!= 0)
         {
             rt_kprintf("[audio] 错误：渲染器初始化失败，无法播放音频\n");
+            rt_mutex_take(elevtor_mutex, RT_WAITING_FOREVER);
+            wait_elevtor_flag = false;
+            rt_mutex_release(elevtor_mutex);
             return -1;
         }
         // 重新加锁

@@ -52,5 +52,7 @@ void video_set_volume(rt_uint16_t vol);
 int lvgl_play(struct lvgl_player_context *ctx);
 int lvgl_stop(struct lvgl_player_context *ctx);
 int lvgl_play_next(struct lvgl_player_context *ctx);
+int do_seek(struct lvgl_player_context *player_ctx,int forward);
+int set_play_time(struct lvgl_player_context *player_ctx,int second);
 
 #endif

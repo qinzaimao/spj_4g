@@ -11,7 +11,7 @@
 
 #include <aic_core.h>
 #include <hal_sdmc.h>
-#include <mmc.h>
+#include <D:\shipinji\jwzh\jwzh_4G\luban-lite-master\bsp\artinchip\include\drv_bare\mmc.h>
 
 // #define SDMC_DUMP_CMD
 // #define SDMC_RPMB_TRACE

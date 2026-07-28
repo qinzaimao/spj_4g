@@ -57,6 +57,14 @@ void elevator_play_thread_entry(void *parameter)
             rt_mutex_take(elevtor_mutex, RT_WAITING_FOREVER);
             bool need   =  need_to_play_video_flag && (!wait_elevtor_flag);
             rt_mutex_release(elevtor_mutex);
+            // static uint8_t need_cnt = 0;
+            // need_cnt++;
+            // if (need_cnt > 100)
+            // {
+            //     need_cnt = 0;
+            //     rt_kprintf("need_to_play_video_flag = %d\n", need_to_play_video_flag);
+            //     rt_kprintf("wait_elevtor_flag = %d\n", wait_elevtor_flag);
+            // }
                         // rt_kprintf("play_elevator.elevator_up = %d\n", play_elevator.elevator_up);
             if (((enter_en && music_en) || video_en) && !in_video_state_flag && !need)
             {

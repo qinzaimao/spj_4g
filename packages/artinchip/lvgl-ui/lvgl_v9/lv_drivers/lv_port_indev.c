@@ -99,6 +99,8 @@ static void mouse_read(lv_indev_t *indev_drv, lv_indev_data_t *data)
                     lv_scr_load_anim(guider_ui.screen_set, LV_SCR_LOAD_ANIM_NONE, 0, 0, true);
                 }
             }
+            // tcp_video_cnt ++;
+
             // printf("x:%d, y:%d\n", data->point.x, data->point.y);
         }
         else if (my_page == PAGE_HOME_HOR)
@@ -166,6 +168,44 @@ static void mouse_read(lv_indev_t *indev_drv, lv_indev_data_t *data)
             }
             rt_kprintf("video_renew = PRINTF_RENEW;\n");
             video_renew = PRINTF_RENEW;
+
+            // tcp_video_erro_flag = true;
+
+            // signed long long video_time = 0;
+            // // 当前播放时间(微秒)
+            // video_time = aic_player_get_play_time(my_lvgl_player_ctx.player);
+            // // 视频总时长(微秒)
+            // signed long long total_us = my_lvgl_player_ctx.media_info.duration;
+
+            // rt_kprintf("media_info.duration = %ld us\n", total_us);
+            // rt_kprintf("video_time = %ld us\n", video_time);
+
+            // // 计算播放进度百分比，防止总时长为0除零崩溃
+            // int play_progress = 0;
+            // if (total_us > 0)
+            // {
+            //     // 放大100倍算百分比，保留整数进度 0~100
+            //     play_progress = (video_time * 100) / total_us;
+            // }
+
+            // rt_kprintf("播放进度：%d %% \n", play_progress);
+            // if(is_tcp_connected && MY_SET_DHCP.host_state == true && !video_in_updating)
+            // {
+            //     char send_buf[32] = {0};
+            //     uint16_t video_sec  = video_time / 1000000;
+            //      if(video_sec % 10 == 0)
+            //     {
+            //         tcp_wait_video_time_flag = true;
+            //         video_sec += 1;
+            //     }
+            //     // 组装指令：vdes:时间秒数
+            //     rt_sprintf(send_buf, "time:%d", video_sec);
+            //     // 发送整条字符串
+            //     tcp_send_raw(send_buf, rt_strlen(send_buf));
+            //     last_recv_tick = rt_tick_get();
+            //     rt_kprintf("send time progress, sec = %d\n", video_sec);
+            // }
+
         }
         if (my_page == PAGE_SET)
         {
@@ -196,11 +236,17 @@ static void mouse_read(lv_indev_t *indev_drv, lv_indev_data_t *data)
             lv_timer_pause(get_time_timer);
             setup_scr_screen_home(&guider_ui);
             lv_scr_load_anim(guider_ui.screen_home, LV_SCR_LOAD_ANIM_NONE, 0, 0, true);
-            if(is_tcp_connected && MY_SET_DHCP.host_state == true && !video_in_updating)
+            if(is_tcp_connected && !video_in_updating)
             {
-                tcp_send_raw("vdes", 4);
-                last_recv_tick = rt_tick_get();
-                rt_kprintf("vdes\n");
+                if(MY_SET_DHCP.host_state == true)
+                {
+                    tcp_send_raw("vdes", 4);
+                    last_recv_tick = rt_tick_get();
+                    rt_kprintf("vdes\n");
+                }else{
+                    if(MY_SET.play_mode == PLAY_VIDEO)
+                        tcp_return_home_flag = true;
+                }
             }
             if(MY_SET.play_mode == PLAY_VIDEO)
             {
@@ -242,11 +288,17 @@ static void mouse_read(lv_indev_t *indev_drv, lv_indev_data_t *data)
                 rt_kprintf("video_renew = PRINTF_RENEW;\n");
                 video_renew = PRINTF_RENEW;
             }
-            if(is_tcp_connected && MY_SET_DHCP.host_state == true && !video_in_updating)
+            if(is_tcp_connected && !video_in_updating)
             {
-                tcp_send_raw("vdes", 4);
-                last_recv_tick = rt_tick_get();
-                rt_kprintf("vdes\n");
+                if(MY_SET_DHCP.host_state == true)
+                {
+                    tcp_send_raw("vdes", 4);
+                    last_recv_tick = rt_tick_get();
+                    rt_kprintf("vdes\n");
+                }else{
+                    if(MY_SET.play_mode == PLAY_VIDEO)
+                        tcp_return_home_flag = true;
+                }
             }
         }
         else if (my_page == PAGE_VOICE)

@@ -304,7 +304,8 @@ static void set_time_callback(lv_timer_t *timer)
     struct tm *local_time;
     static const char *week_day_en[7] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
     static const char *week_day_cn[7] = {"星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"};
-
+    static uint8_t last_min = 100;
+    static uint8_t last_set_min = 100;
     now = time(RT_NULL);
     local_time = localtime(&now);
 
@@ -316,48 +317,67 @@ static void set_time_callback(lv_timer_t *timer)
     int minute = local_time->tm_min;
     int wday = local_time->tm_wday;
 
-    if (MY_SET_IMAGE.image == IMAGE_C201_hor || MY_SET_IMAGE.image == IMAGE_C202_hor)
+    if(last_set_min != minute || tcp_set_time_flag)
     {
-        // lv_label_set_text_fmt(guider_ui.screen_home_hor_label_date, "%04d/%02d/%02d", year, month, day);
-        // lv_label_set_text_fmt(guider_ui.screen_home_hor_label_C201, "%s/%s", week_day_en[wday], week_day_cn[wday]);
-        // lv_label_set_text_fmt(guider_ui.screen_home_hor_label_time, "%02d:%02d",hour, minute);
-        lv_label_set_text_fmt(guider_ui.screen_home_hor_label_date, "%04d/%02d/%02d                                                %s/%s",
-                              year, month, day,
-                              week_day_en[wday], week_day_cn[wday]);
-        lv_label_set_text_fmt(guider_ui.screen_home_hor_label_time, "%02d:%02d",
-                              hour, minute);
+        if(tcp_set_time_flag) tcp_set_time_flag = false;
+        last_set_min = minute;
+        if (MY_SET_IMAGE.image == IMAGE_C201_hor || MY_SET_IMAGE.image == IMAGE_C202_hor)
+        {
+            // lv_label_set_text_fmt(guider_ui.screen_home_hor_label_date, "%04d/%02d/%02d", year, month, day);
+            // lv_label_set_text_fmt(guider_ui.screen_home_hor_label_C201, "%s/%s", week_day_en[wday], week_day_cn[wday]);
+            // lv_label_set_text_fmt(guider_ui.screen_home_hor_label_time, "%02d:%02d",hour, minute);
+            lv_label_set_text_fmt(guider_ui.screen_home_hor_label_date, "%04d/%02d/%02d                                                %s/%s",
+                                year, month, day,
+                                week_day_en[wday], week_day_cn[wday]);
+            lv_label_set_text_fmt(guider_ui.screen_home_hor_label_time, "%02d:%02d",
+                                hour, minute);
+        }
+        else if (MY_SET_IMAGE.image == IMAGE_C203_hor)
+        {
+            lv_label_set_text_fmt(guider_ui.screen_home_hor_label_date, "%04d/%02d/%02d   %s/%s",
+                                year, month, day,
+                                week_day_en[wday], week_day_cn[wday]);
+            lv_label_set_text_fmt(guider_ui.screen_home_hor_label_time, "%02d:%02d", hour, minute);
+        }
+        else if (MY_SET_IMAGE.image == IMAGE_C301_hor || MY_SET_IMAGE.image == IMAGE_C302_hor || MY_SET_IMAGE.image == IMAGE_C303_hor)
+        {
+            lv_label_set_text_fmt(guider_ui.screen_home_hor_label_date, "%04d/%02d/%02d", year, month, day);
+            lv_label_set_text_fmt(guider_ui.screen_home_hor_label_date_c3, "%s/%s", week_day_en[wday], week_day_cn[wday]);
+            lv_label_set_text_fmt(guider_ui.screen_home_hor_label_time, "%02d:%02d", hour, minute);
+        }
+        else if (MY_SET_IMAGE.image == IMAGE_C401_hor)
+        {
+            lv_label_set_text_fmt(guider_ui.screen_home_hor_label_date, "%04d-%02d-%02d   %02d:%02d",
+                                year, month, day,
+                                hour, minute);
+        }
+        else if (MY_SET_IMAGE.image == IMAGE_C403_hor)
+        {
+            lv_label_set_text_fmt(guider_ui.screen_home_hor_label_date, "%04d/%02d/%02d    %02d:%02d",
+                                year, month, day,
+                                hour, minute);
+        }
+        else if (MY_SET_IMAGE.image == IMAGE_C404_hor)
+        {
+            lv_label_set_text_fmt(guider_ui.screen_home_hor_label_date, "%02d/%02d %s",
+                                month, day, week_day_en[wday]);
+            lv_label_set_text_fmt(guider_ui.screen_home_hor_label_time, "%02d:%02d",
+                                hour, minute);
+        }
     }
-    else if (MY_SET_IMAGE.image == IMAGE_C203_hor)
+    if (is_tcp_connected && MY_SET_DHCP.host_state == true)
     {
-        lv_label_set_text_fmt(guider_ui.screen_home_hor_label_date, "%04d/%02d/%02d   %s/%s",
-                              year, month, day,
-                              week_day_en[wday], week_day_cn[wday]);
-        lv_label_set_text_fmt(guider_ui.screen_home_hor_label_time, "%02d:%02d", hour, minute);
-    }
-    else if (MY_SET_IMAGE.image == IMAGE_C301_hor || MY_SET_IMAGE.image == IMAGE_C302_hor || MY_SET_IMAGE.image == IMAGE_C303_hor)
-    {
-        lv_label_set_text_fmt(guider_ui.screen_home_hor_label_date, "%04d/%02d/%02d", year, month, day);
-        lv_label_set_text_fmt(guider_ui.screen_home_hor_label_date_c3, "%s/%s", week_day_en[wday], week_day_cn[wday]);
-        lv_label_set_text_fmt(guider_ui.screen_home_hor_label_time, "%02d:%02d", hour, minute);
-    }
-    else if (MY_SET_IMAGE.image == IMAGE_C401_hor)
-    {
-        lv_label_set_text_fmt(guider_ui.screen_home_hor_label_date, "%04d-%02d-%02d   %02d:%02d",
-                              year, month, day,
-                              hour, minute);
-    }
-    else if (MY_SET_IMAGE.image == IMAGE_C403_hor)
-    {
-        lv_label_set_text_fmt(guider_ui.screen_home_hor_label_date, "%04d/%02d/%02d    %02d:%02d",
-                              year, month, day,
-                              hour, minute);
-    }
-    else if (MY_SET_IMAGE.image == IMAGE_C404_hor)
-    {
-        lv_label_set_text_fmt(guider_ui.screen_home_hor_label_date, "%02d/%02d %s",
-                              month, day, week_day_en[wday]);
-        lv_label_set_text_fmt(guider_ui.screen_home_hor_label_time, "%02d:%02d",
-                              hour, minute);
+         if(last_min != local_time->tm_min || tcp_raw_time_flag)
+         {
+            if(tcp_raw_time_flag) tcp_raw_time_flag = false;
+            last_min = local_time->tm_min;
+            char time_str[20] = {0};
+            sprintf(time_str, "%04d/%02d/%02d %02d:%02d",
+            local_time->tm_year + 1900, local_time->tm_mon + 1, local_time->tm_mday,
+            local_time->tm_hour, local_time->tm_min);
+            // rt_kprintf("time_str:%s\n", time_str);
+            tcp_send_raw(time_str, 16);
+        }
     }
 }
 
@@ -1246,12 +1266,22 @@ static void update_callback(lv_timer_t *timer)
         else if (MY_SET.language == LANGUAGE_EN)
             lv_label_set_text(guider_ui.screen_home_hor_label_update, "Video over 500M");
     }
+    static bool set_wait_flag=false;
     // 如果更新完成，设置更新标志位，清空更新提示
     if (update_ok_flag)
     {
         udisk_update_state = UPDATE_NONE;
         update_ok_flag = false;
         lv_label_set_text_fmt(guider_ui.screen_home_hor_label_update, "");
+    }
+    if(tcp_return_home_flag && !set_wait_flag)
+    {
+        set_wait_flag = true;
+        lv_obj_clear_flag(guider_ui.screen_home_hor_img_wait, LV_OBJ_FLAG_HIDDEN); // 可见
+    }else if(!tcp_return_home_flag && set_wait_flag)
+    {
+        set_wait_flag = false;
+        lv_obj_add_flag(guider_ui.screen_home_hor_img_wait, LV_OBJ_FLAG_HIDDEN); // 不可见
     }
 
     if(home_hor_video_flag)
@@ -2219,6 +2249,20 @@ void setup_scr_screen_home_hor(lv_ui *ui)
     lv_obj_set_style_radius(ui->screen_home_hor_img_shade_left, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_clip_corner(ui->screen_home_hor_img_shade_left, true, LV_PART_MAIN | LV_STATE_DEFAULT);
 
+    ui->screen_home_hor_img_wait = lv_img_create(ui->screen_home_hor);
+    lv_obj_add_flag(ui->screen_home_hor_img_wait, LV_OBJ_FLAG_CLICKABLE);
+    lv_img_set_src(ui->screen_home_hor_img_wait, MY_LVGL_IMAGE_PATH(picture/logo/wait.png));
+    lv_img_set_pivot(ui->screen_home_hor_img_wait, 50, 50);
+    lv_img_set_angle(ui->screen_home_hor_img_wait, 0);
+    lv_obj_set_pos(ui->screen_home_hor_img_wait, 480, 350);
+    lv_obj_set_size(ui->screen_home_hor_img_wait, 327, 100);
+
+    // Write style for screen_home_hor_img_wait, Part: LV_PART_MAIN, State: LV_STATE_DEFAULT.
+    lv_obj_set_style_img_recolor_opa(ui->screen_home_hor_img_wait, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_img_opa(ui->screen_home_hor_img_wait, 255, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_radius(ui->screen_home_hor_img_wait, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_clip_corner(ui->screen_home_hor_img_wait, true, LV_PART_MAIN | LV_STATE_DEFAULT);
+
     // Write codes screen_home_hor_label_fire
     ui->screen_home_hor_label_fire = lv_label_create(ui->screen_home_hor);
     lv_label_set_text(ui->screen_home_hor_label_fire, "消防\nFIRE");
@@ -2546,6 +2590,7 @@ void setup_scr_screen_home_hor(lv_ui *ui)
     lv_obj_set_style_text_line_space(ui->screen_home_hor_label_welecom, 10, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_text_align(ui->screen_home_hor_label_welecom, LV_TEXT_ALIGN_LEFT, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_bg_opa(ui->screen_home_hor_label_welecom, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
+    lv_obj_set_style_bg_color(ui->screen_home_hor, lv_color_hex(0x000000), LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_pad_top(ui->screen_home_hor_label_welecom, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_pad_right(ui->screen_home_hor_label_welecom, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
     lv_obj_set_style_pad_bottom(ui->screen_home_hor_label_welecom, 0, LV_PART_MAIN | LV_STATE_DEFAULT);
@@ -2962,6 +3007,7 @@ void setup_scr_screen_home_hor(lv_ui *ui)
     lv_obj_add_flag(guider_ui.screen_home_hor_label_201_welcome, LV_OBJ_FLAG_HIDDEN); // 不可见
     lv_obj_add_flag(guider_ui.screen_home_hor_label_date_c3, LV_OBJ_FLAG_HIDDEN); // 不可见
     lv_obj_add_flag(guider_ui.screen_home_hor_label_C201, LV_OBJ_FLAG_HIDDEN); // 不可见
+    lv_obj_add_flag(guider_ui.screen_home_hor_img_wait, LV_OBJ_FLAG_HIDDEN); // 不可见
 
     if(MY_SET_IMAGE.image == IMAGE_C201_hor || MY_SET_IMAGE.image == IMAGE_C202_hor)
         lv_obj_clear_flag(guider_ui.screen_home_hor_label_square, LV_OBJ_FLAG_HIDDEN);       // 不可见
@@ -3773,6 +3819,14 @@ void setup_scr_screen_home_hor(lv_ui *ui)
         }
     }
 
+    if(tcp_return_home_flag)
+    {
+        lv_obj_clear_flag(guider_ui.screen_home_hor_img_wait, LV_OBJ_FLAG_HIDDEN); // 可见
+    }else if(!tcp_return_home_flag)
+    {
+        lv_obj_add_flag(guider_ui.screen_home_hor_img_wait, LV_OBJ_FLAG_HIDDEN); // 不可见
+    }
+
     // 定时器
     if (home_hor_set_time_timer == NULL)
         home_hor_set_time_timer = lv_timer_create(set_time_callback, 1000, 0);
@@ -3831,6 +3885,7 @@ void setup_scr_screen_home_hor(lv_ui *ui)
     memset(&my_cnt, 0, sizeof(my_cnt));
     up_down_cnt = 0;
     in_arr_flag = false;
+    tcp_set_time_flag = true;
     rt_mutex_take(video_mutex, RT_WAITING_FOREVER);
     home_hor_video_flag = false;
     have_two_video_flag = false;

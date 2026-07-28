@@ -57,6 +57,15 @@ static void set_time_callback(lv_timer_t *timer)
 
         save_begin();
         set_time_flag = false;
+        if (is_tcp_connected && MY_SET_DHCP.host_state == true)
+        {
+            char time_str[20] = {0};
+            sprintf(time_str, "%04d/%02d/%02d %02d:%02d",
+            MY_SET_TIME.year, MY_SET_TIME.month, MY_SET_TIME.day,
+            MY_SET_TIME.hour, MY_SET_TIME.minute);
+            // rt_kprintf("time_str:%s\n", time_str);
+            tcp_send_raw(time_str, 16);
+        }
     }
     if(uart_v_flag)
     {
@@ -195,7 +204,13 @@ static void slider_handler_slider(lv_event_t *e)
         {
             MY_SET.backlight = lv_slider_get_value(guider_ui.screen_set_hor_slider_normal_brightness);
             if(!energy_conservation)
+            {
                 backlight_set(MY_SET.backlight);
+                if (is_tcp_connected && MY_SET_DHCP.host_state == true)
+                {
+                    send_light(false, MY_SET.backlight);
+                }
+            }
         }else if(target == guider_ui.screen_set_hor_slider_saving_brightness)
         {
             MY_SET.e_con_backlight = lv_slider_get_value(guider_ui.screen_set_hor_slider_saving_brightness);

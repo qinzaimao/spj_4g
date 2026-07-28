@@ -700,6 +700,16 @@ void aic_mmcsd_change(u8 id)
         mmcsd_change(g_aic_sdmc_host[id]->rthost);
 }
 
+
+struct rt_mmcsd_host *aic_sdmc_get_host(int id)
+{
+    if (id < 0 || id >= MAX_MMC_DEV_NUM)
+        return NULL;
+    if (g_aic_sdmc_host[id])
+        return g_aic_sdmc_host[id]->rthost;
+    return NULL;
+}
+
 static int drv_sdmc_init(void)
 {
     int i;

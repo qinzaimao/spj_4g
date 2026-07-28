@@ -27,6 +27,8 @@
 #include "mpp_decoder.h"
 #include "mpp_dec_type.h"
 
+#include "D:\shipinji\jwzh\jwzh_4G\luban-lite-master\application\rt-thread\helloworld\main.h"
+
 #define VDEC_INPORT_STREAM_END_FLAG      0x01
 #define VDEC_OUTPORT_SEND_ALL_FRAME_FLAG 0x08 // consume all frame in readylist
 
@@ -550,12 +552,14 @@ static s32 mm_vdec_process_video_sync(mm_vdec_data *p_vdec_data,
         }
     }
 
-    if (delay_time > 2 * MM_VIDEO_SYNC_DIFF_TIME) {
+    if (delay_time > 3 * MM_VIDEO_SYNC_DIFF_TIME) {
+        // rt_kprintf("delay 1\n");
         sync_type = MM_VIDEO_SYNC_DELAY;
-    } else if (delay_time > (-2) * MM_VIDEO_SYNC_DIFF_TIME) {
+    } else if (delay_time > (-3) * MM_VIDEO_SYNC_DIFF_TIME) {
+        // rt_kprintf("delay 2\n");
         sync_type = MM_VIDEO_SYNC_SHOW;
     } else {
-        sync_type = MM_VIDEO_SYNC_DROP;
+        sync_type = MM_VIDEO_SYNC_SHOW;
     }
 
     *delay = delay_time;
@@ -1280,10 +1284,15 @@ static void *mm_vdec_component_thread(void *p_thread_data)
             loge("mpp_decoder_decode ret:%d !!!\n", dec_ret);
         } else {
             //ASSERT();
+
             loge("mpp_decoder_decode error serious,do not keep decoding ret:%d!!!\n", dec_ret);
             mm_vdec_event_notify(p_vdec_data, MM_EVENT_ERROR,
-                                 MM_ERROR_MB_ERRORS_IN_FRAME, 0, NULL);
-            p_vdec_data->flags |= VDEC_OUTPORT_SEND_ALL_FRAME_FLAG;
+                MM_ERROR_MB_ERRORS_IN_FRAME, 0, NULL);
+                p_vdec_data->flags |= VDEC_OUTPORT_SEND_ALL_FRAME_FLAG;
+
+
+
+            tcp_video_erro_flag = true;
             goto _AIC_MSG_GET_;
         }
 

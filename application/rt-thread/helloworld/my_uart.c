@@ -1024,12 +1024,13 @@ void Cmdparsing(rt_uint8_t *buf)
         // rt_kprintf("数据未更新\n");
         return;
     }
-    if(is_tcp_connected && MY_SET_DHCP.host_state == true && !video_in_updating)
-        rt_thread_mdelay(100);
+    if(is_tcp_connected && MY_SET_DHCP.host_state == true)
+        rt_thread_mdelay(140);
     // rt_kprintf("数据有变化\n");
     memset(pre_eledata, 0, sizeof(pre_eledata));
     memcpy(pre_eledata, buf, sizeof(pre_eledata));
 #endif
+    process_elevator_data();
     if(elevator_data.video_state)
     {
         video_udp_state = elevator_data.video_state;
@@ -1196,7 +1197,7 @@ void Cmdparsing(rt_uint8_t *buf)
                     in_reset_end_cn_flag = false;
 
                 if (reset_end_appease_start_flag)
-                    reset_help_appease_start_flag = false;
+                    reset_end_appease_start_flag = false;
                 if (play_elevator.video_reset_end_appease)
                     play_elevator.video_reset_end_appease = false;
                 if (play_elevator.music_reset_end_appease)
@@ -1225,7 +1226,16 @@ void Cmdparsing(rt_uint8_t *buf)
                 up_down_cnt = 0;
                 in_arr_flag = false;
                 memset(&my_cnt, 0, sizeof(my_cnt));
-                backlight_set(MY_SET.e_con_backlight);
+                if (is_tcp_connected && MY_SET_DHCP.host_state == false)
+                {
+
+                }else{
+                    backlight_set(MY_SET.e_con_backlight);
+                }
+                if (is_tcp_connected && MY_SET_DHCP.host_state == true)
+                {
+                    send_light(true, MY_SET.e_con_backlight);
+                }
                 music_renew_flag = true;
                 energy_conservation = true;
             }
@@ -1436,7 +1446,17 @@ void Cmdparsing(rt_uint8_t *buf)
                     in_arr_flag = false;
                     memset(&my_cnt, 0, sizeof(my_cnt));
                     energy_flag = true;
-                    backlight_set(MY_SET.e_con_backlight);
+                    if (is_tcp_connected && MY_SET_DHCP.host_state == false)
+                    {
+
+                    }else{
+
+                        backlight_set(MY_SET.e_con_backlight);
+                    }
+                    if (is_tcp_connected && MY_SET_DHCP.host_state == true)
+                    {
+                        send_light(true, MY_SET.e_con_backlight);
+                    }
                     music_renew_flag = true;
                     energy_conservation = true;
                 }
@@ -1586,7 +1606,7 @@ void Cmdparsing(rt_uint8_t *buf)
         elevator_data.elevator_state2 = 0;
         rt_kprintf("last_elevator_state2 = %d\n", last_elevator_state2);
     }
-    process_elevator_data();
+    // process_elevator_data();
     if (energy_flag)
     {
         elevator_change_flag = false;
@@ -2097,15 +2117,21 @@ void uart_thread_entry(void *parameter)
 #define SAMPLE_UART_NAME       "uart5"
 #define UART_8BYTE             8
 #define UART_9BYTE             9
+#define UART_FIFO_BATCH_LEN    32   // 批量读取串口FIFO最大长度
+
+    wait_uart_init_flag = 1;
+    while (!init_set_img_ok) rt_thread_mdelay(10);
+#if !MY_USE
+    rt_thread_mdelay(12000);
+#endif
 
     uint8_t ch;
+    uint8_t batch_buf[UART_FIFO_BATCH_LEN];
     uint8_t valid_frame_buf[UART_9BYTE] = {0};
     rt_tick_t last_tick = rt_tick_get();
 
-    // 初始化环形缓冲区
     ring_buffer_init(&rx_ring_buf);
 
-    // 初始化
     serial = rt_device_find(SAMPLE_UART_NAME);
     if (!serial) {
         rt_kprintf("[UART] 设备查找失败!\n");
@@ -2114,13 +2140,9 @@ void uart_thread_entry(void *parameter)
     rt_sem_init(&rx_sem, "rx_sem", 0, RT_IPC_FLAG_FIFO);
     rt_device_open(serial, RT_DEVICE_OFLAG_RDWR | RT_DEVICE_FLAG_INT_RX);
 
-    wait_uart_init_flag = 1;
-    while (!init_set_img_ok) rt_thread_mdelay(10);
-#if !MY_USE
-    rt_thread_mdelay(12000);
-#endif
+
     rt_device_set_rx_indicate(serial, uart_input);
-    rt_kprintf("[UART] 启动完成 8字节(AA56) | 9字节(00+E6)\n");
+
 
     while (1)
     {
@@ -2129,7 +2151,8 @@ void uart_thread_entry(void *parameter)
             rt_thread_mdelay(1000);
             continue;
         }
-        // 业务发送
+
+        // 发送业务：建议后续单独开发送线程，这里先保留原有逻辑
         if (need_send_data) send_test();
         if (default_set_io_flag)
         {
@@ -2148,91 +2171,84 @@ void uart_thread_entry(void *parameter)
             }
         }
 
-        if (rt_sem_take(&rx_sem, 10) != RT_EOK) continue;
+        // 信号量永久阻塞，无数据不占用CPU，删除原有的10ms轮询delay
+        if (rt_sem_take(&rx_sem, RT_WAITING_FOREVER) != RT_EOK)
+            continue;
 
-        // ==================== 核心接收 ====================
-        while (rt_device_read(serial, -1, &ch, 1) == 1)
+        // 批量读取串口硬件FIFO，减少系统调用次数
+        int read_len = 0;
+        while ((read_len = rt_device_read(serial, -1, batch_buf, UART_FIFO_BATCH_LEN)) > 0)
         {
             rt_tick_t cur_tick = rt_tick_get();
-
-            // 超时判断：超过10ms未收到数据，清空环形缓冲区
-            if (rt_tick_diff(cur_tick, last_tick) > RX_TIMEOUT_TICKS) {
-                if (rx_ring_buf.len > 0) {
-                    // rt_kprintf("⏱️  接收超时，清空环形缓冲区（剩余%d字节脏数据）\n", rx_ring_buf.len);
+            // 超时判断：仅丢弃脏数据指针，不memset整块环形缓冲区
+            if (rt_tick_diff(cur_tick, last_tick) > RX_TIMEOUT_TICKS)
+            {
+                if (rx_ring_buf.len > 0)
+                {
+                    rt_kprintf("⏱️  接收超时，丢弃缓冲区旧数据 len:%d\n", rx_ring_buf.len);
+                    rx_ring_buf.r_ptr = rx_ring_buf.w_ptr;
+                    rx_ring_buf.len = 0;
                 }
-                ring_buffer_clear(&rx_ring_buf);
             }
             last_tick = cur_tick;
 
-            // 写入环形缓冲区
-            ring_buffer_write_byte(&rx_ring_buf, ch);
-
-            // ==================================================
-            // 1. 先检查9字节正常协议：00 开头 + E6 结尾（双校验）
-            // ==================================================
-            if (rx_ring_buf.len >= UART_9BYTE)
+            // 批量写入环形缓冲
+            for(int i = 0; i < read_len; i++)
             {
-                // 读取缓冲区最后9字节
-                ring_buffer_read_at(&rx_ring_buf, valid_frame_buf, rx_ring_buf.len - UART_9BYTE, UART_9BYTE);
+                ring_buffer_write_byte(&rx_ring_buf, batch_buf[i]);
+            }
 
-                // ✅ 必须 00 开头 + E6 结尾 才解析
-                if (valid_frame_buf[0] == 0x00 && valid_frame_buf[8] == 0xE6)
+            // ============ 循环解析缓冲区所有可识别帧，支持粘包多帧 ============
+            while(1)
+            {
+                // 优先解析9字节标准协议帧
+                if (rx_ring_buf.len >= UART_9BYTE)
                 {
-                    // CRC校验
-                    uint16_t recv_crc = (valid_frame_buf[8] << 8) | valid_frame_buf[7];
-                    uint16_t calc_crc = crc_chk_value(valid_frame_buf,7);
-#if break_check
-                    rt_kprintf("valid_frame_buf[7] = %02x\n", valid_frame_buf[7]);
-                    rt_kprintf("calc_crc = %04x\n", calc_crc);
-
-                    Cmdparsing(valid_frame_buf);
-#else
-                    if (calc_crc == recv_crc)
+                    ring_buffer_read_at(&rx_ring_buf, valid_frame_buf, 0, UART_9BYTE);
+                    if (valid_frame_buf[0] == 0x00 && valid_frame_buf[8] == 0xE6)
                     {
+                        uint16_t recv_crc = (valid_frame_buf[8] << 8) | valid_frame_buf[7];
+                        uint16_t calc_crc = crc_chk_value(valid_frame_buf,7);
+#if break_check
+                        rt_kprintf("valid_frame_buf[7] = %02x\n", valid_frame_buf[7]);
+                        rt_kprintf("calc_crc = %04x\n", calc_crc);
+                        Cmdparsing(valid_frame_buf);
+#else
+                        if (calc_crc == recv_crc)
+                        {
+                            if(is_tcp_connected)
+                            {
+                                tcp_send_raw(&valid_frame_buf[0], 7);
+                            }
+                            Cmdparsing(valid_frame_buf);
+                        }
+#endif
+                        // 只跳过当前这一帧9字节，不清空整个缓冲区
+                        ring_buffer_skip(&rx_ring_buf, UART_9BYTE);
+                        continue;
+                    }
+                }
+
+                // 再解析8字节版本协议帧
+                if (rx_ring_buf.len >= UART_8BYTE)
+                {
+                    ring_buffer_read_at(&rx_ring_buf, valid_frame_buf, 0, UART_8BYTE);
+                    if (valid_frame_buf[0] == 0xAA && valid_frame_buf[1] == 0x56)
+                    {
+                        process_version_packet(valid_frame_buf);
                         if(is_tcp_connected)
                         {
-                            // 跳过帧头0x00，截取中间7个有效数据
-                            tcp_send_raw(&valid_frame_buf[1], 6);
-                            // rt_thread_mdelay(50); // 2ms延时
+                            tcp_send_raw(valid_frame_buf, 8);
                         }
-                        Cmdparsing(valid_frame_buf);
+                        // 跳过8字节版本帧
+                        ring_buffer_skip(&rx_ring_buf, UART_8BYTE);
+                        continue;
                     }
-#endif
-
-                    // 移除已处理帧（只移动读指针，零数据移动）
-                    ring_buffer_skip(&rx_ring_buf, rx_ring_buf.len);
-                    continue;
                 }
-            }
 
-            // ==================================================
-            // 2. 再检查8字节版本协议：AA 56 开头
-            // ==================================================
-            if (rx_ring_buf.len >= UART_8BYTE)
-            {
-                // 读取缓冲区最后8字节
-                ring_buffer_read_at(&rx_ring_buf, valid_frame_buf, rx_ring_buf.len - UART_8BYTE, UART_8BYTE);
-
-                if (valid_frame_buf[0] == 0xAA && valid_frame_buf[1] == 0x56)
-                {
-                    rt_kprintf("[VER-8BYTE] ");
-                    for(int i=0;i<8;i++) rt_kprintf("%02x ", valid_frame_buf[i]);
-                    rt_kprintf("\n");
-
-                    process_version_packet(valid_frame_buf);
-                    // 原包转发
-                    if(is_tcp_connected)
-                    {
-                        tcp_send_raw(valid_frame_buf, 8);
-                        // last_recv_tick = rt_tick_get();
-                        // rt_thread_mdelay(2);
-                    }
-                    // 移除已处理帧
-                    ring_buffer_skip(&rx_ring_buf, rx_ring_buf.len);
-                    continue;
-                }
+                // 无完整帧可解析，退出内层循环，等待下一批数据
+                break;
             }
         }
-        rt_thread_mdelay(10);
     }
 }

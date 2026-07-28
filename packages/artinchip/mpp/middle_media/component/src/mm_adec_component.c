@@ -584,6 +584,8 @@ s32 mm_adec_component_init(mm_handle h_component)
                          mm_adec_component_thread, p_adec_data);
     if (err) {
         loge("pthread_create fail!\n");
+        rt_kprintf("重启系统\n");
+        wdt_immediate_reset();
         error = MM_ERROR_INSUFFICIENT_RESOURCES;
         goto _EXIT;
     }

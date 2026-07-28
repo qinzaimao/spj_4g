@@ -92,6 +92,8 @@ void setup_ui(lv_ui *ui)
 {
     init_scr_del_flag(ui);
     init_keyboard(ui);
+    // setup_scr_screen_city(ui);
+    // lv_scr_load(ui->screen_city);
     if(hengping == 0)
     {
         setup_scr_screen_home(ui);

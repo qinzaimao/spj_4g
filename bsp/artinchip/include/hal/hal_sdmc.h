@@ -10,6 +10,8 @@
 #define _ARTINCHIP_HAL_SDMC_H_
 
 #include <bouncebuf.h>
+typedef unsigned int        u32;
+typedef unsigned char       u8;
 
 #define SDMC_CLOCK_MIN       400000      /* 400KHz */
 
@@ -200,7 +202,7 @@ struct aic_sdmc_idma_desc {
     u32 cnt;
     u32 addr;
     u32 next_addr;
-} __aligned(8);
+} __attribute__((aligned(8)));
 
 struct aic_sdmc_host {
     volatile void *base;

@@ -389,8 +389,8 @@ static int aic_de_get_alpha_config(struct aicfb_alpha_config *alpha)
     struct aic_de_comp *comp = aic_de_request_drvdata();
 
     if (is_support_alpha_blending(comp, alpha->layer_id) == false) {
-        pr_err("layer %d doesn't support alpha blending\n",
-            alpha->layer_id);
+        // pr_err("layer %d doesn't support alpha blending\n",
+            // alpha->layer_id);
         aic_de_release_drvdata();
         return -EINVAL;
     }
@@ -408,8 +408,8 @@ static int aic_de_update_alpha_config(struct aicfb_alpha_config *alpha)
     struct aic_de_comp *comp = aic_de_request_drvdata();
 
     if (is_support_alpha_blending(comp, alpha->layer_id) == false) {
-        pr_err("layer %d doesn't support alpha blending\n",
-                alpha->layer_id);
+        // pr_err("layer %d doesn't support alpha blending\n",
+                // alpha->layer_id);
         aic_de_release_drvdata();
         return -EINVAL;
     }

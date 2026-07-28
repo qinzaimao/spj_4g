@@ -58,6 +58,7 @@
 #include "udp_rec.h"
 #include "my_tcp.h"
 #include "tcp_video.h"
+#include "my_emmc.h"
 
 #define CONN(x, y) x#y
 #define LVGL_DIRR "L:" LVGL_STORAGE_PATH "/"
@@ -69,10 +70,10 @@
 #define LVGL_PCM_PATH LVGL_STORAGE_PATH"/pcm/"
 #define PCM_PATH(y) CONN(LVGL_PCM_PATH, y)
 
-#define VERSION_DATE "Ver: 1.0 (20260710)"
+#define VERSION_DATE "Ver: 1.0 (20260727)"
 
 //我用 1 ，客户 0
-#define MY_USE 1
+#define MY_USE 0
 
 #define USE_PRI 0
 #define MOUSE_DEBUG 0
@@ -117,8 +118,17 @@ extern volatile bool wait_uart_init_flag, weather_erro_flag;
 extern volatile bool get_lwip_flag, start_set_lwip_flag, change_weather_flag, geted_weather_flag;
 extern volatile bool tcp_video_init;
 extern volatile bool tcp_video_des;
+extern volatile bool tcp_return_home_flag;
+extern volatile bool tcp_wait_des_flag;
+extern volatile bool tcp_wait_video_time_flag;
+extern volatile bool tcp_video_erro_flag;
+extern volatile bool tcp_video_erro_seek_flag;
+extern volatile bool tcp_set_time_flag;
+extern volatile bool tcp_raw_time_flag;
 extern volatile uint8_t tcp_video_num;
 extern volatile uint8_t tcp_img_num;
+extern volatile uint8_t tcp_last_video_num;
+extern volatile uint16_t tcp_video_cnt;
 /*********************主页面部分******************************/
 typedef struct {
     int32_t x;

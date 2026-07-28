@@ -25,6 +25,7 @@ extern "C"
 		lv_obj_t *screen_home_img_init;
 		lv_obj_t *screen_home_label_shade_down;
 		lv_obj_t *screen_home_img_shade_left;
+		lv_obj_t *screen_home_img_wait;
 		lv_obj_t *screen_home_img_shade_up;
 		lv_obj_t *screen_home_label_fire;
 		lv_obj_t *screen_home_label_fire_401;
@@ -378,6 +379,7 @@ extern "C"
 		lv_obj_t *screen_home_hor_img_arrow_xio;
 		lv_obj_t *screen_home_hor_img_shade_up;
 		lv_obj_t *screen_home_hor_img_shade_left;
+		lv_obj_t *screen_home_hor_img_wait;
 		lv_obj_t *screen_home_hor_label_shade_down;
 		lv_obj_t *screen_home_hor_img_arrow_swd;
 		lv_obj_t *screen_home_hor_img_num1;
