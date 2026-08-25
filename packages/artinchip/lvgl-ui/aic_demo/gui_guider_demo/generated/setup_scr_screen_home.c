@@ -419,7 +419,7 @@ static void refresh_picture_callback(lv_timer_t *timer)
 
         }else
         {
-            if (time_cnt >= 23 && !tcp_raw_flag)
+            if (time_cnt >= 24 && !tcp_raw_flag)
             {
                 if (image_cnt_temp >= page_image_cnt[update_page_num])
                    image_cnt_temp = 0;
@@ -470,7 +470,7 @@ static void refresh_picture_callback(lv_timer_t *timer)
         }
 
     }
-    if(!page_image_cnt[update_page_num] && MY_SET.play_mode == PLAY_IMAGE)
+    else if(!page_image_cnt[update_page_num] && MY_SET.play_mode == PLAY_IMAGE)
     {
         if(MY_SET_IMAGE.image == IMAGE_C401_ver || MY_SET_IMAGE.image == IMAGE_C402_ver ||
            MY_SET_IMAGE.image == IMAGE_C403_ver || MY_SET_IMAGE.image == IMAGE_C404_ver)
@@ -479,7 +479,7 @@ static void refresh_picture_callback(lv_timer_t *timer)
             {
 
             }else{
-                if (time_cnt2 >= 23 && !tcp_raw_flag)
+                if (time_cnt2 >= 24 && !tcp_raw_flag)
                 {
                     if(show_image_num >= 4) show_image_num = 0;
                     if(is_tcp_connected && MY_SET_DHCP.host_state == true && !video_in_updating)
@@ -966,7 +966,7 @@ static void update_callback(lv_timer_t *timer)
     {
         lv_obj_set_style_text_font(guider_ui.screen_home_label_update, &lv_font_Dengb_50, LV_PART_MAIN | LV_STATE_DEFAULT);
         udisk_update_state = 0;
-        lv_label_set_text(guider_ui.screen_home_label_update, "ALL OVER 2G");
+        lv_label_set_text(guider_ui.screen_home_label_update, "ALL OVER 4G");
     }else if (udisk_update_state == VIDEO_UPDATE_FLASH_ERROR)
     {
         lv_obj_set_style_text_font(guider_ui.screen_home_label_update, &lv_font_Dengb_50, LV_PART_MAIN | LV_STATE_DEFAULT);

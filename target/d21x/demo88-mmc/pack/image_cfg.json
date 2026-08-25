@@ -7,9 +7,9 @@
             "env_r":      { "size": "256k" },
             "os":         { "size": "100m" },
             // "os_r":         { "size": "90m" },
-            "rodata":     { "size": "1000m" },
+            "rodata":     { "size": "1600m" },
             // "rodata_r":     { "size": "1100m" },
-            "data":       { "size": "2400m" },
+            "data":       { "size": "4400m" },
         },
     },
     "image": {

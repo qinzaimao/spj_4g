@@ -59,6 +59,7 @@
 #include "my_tcp.h"
 #include "tcp_video.h"
 #include "my_emmc.h"
+#include "deal.h"
 
 #define CONN(x, y) x#y
 #define LVGL_DIRR "L:" LVGL_STORAGE_PATH "/"
@@ -70,10 +71,10 @@
 #define LVGL_PCM_PATH LVGL_STORAGE_PATH"/pcm/"
 #define PCM_PATH(y) CONN(LVGL_PCM_PATH, y)
 
-#define VERSION_DATE "Ver: 1.0 (20260727)"
+#define VERSION_DATE "Ver: 1.0 (20260825)"
 
 //我用 1 ，客户 0
-#define MY_USE 0
+#define MY_USE 1
 
 #define USE_PRI 0
 #define MOUSE_DEBUG 0
@@ -111,6 +112,8 @@ extern volatile bool mouse_btn_left, mouse_btn_right, mouse_plugged, mouse_leave
 extern volatile int mouse_current_x, mouse_current_y;//鼠标移动的坐标
 extern volatile int16_t wheel_diff;          // 滚轮差异值
 /*********************网络天气部分******************************/
+#define TCP_RECV_BUF_MAX 50
+#define UART_8BYTE           8
 extern char ip_str[20];
 extern char mask_str[20];
 extern char gateway_str[20];
@@ -129,6 +132,10 @@ extern volatile uint8_t tcp_video_num;
 extern volatile uint8_t tcp_img_num;
 extern volatile uint8_t tcp_last_video_num;
 extern volatile uint16_t tcp_video_cnt;
+
+extern uint8_t g_tcp_recv_buf[TCP_RECV_BUF_MAX];
+extern uint16_t g_tcp_recv_len;
+extern volatile rt_sem_t g_tcp_recv_sem;
 /*********************主页面部分******************************/
 typedef struct {
     int32_t x;

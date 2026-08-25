@@ -14,6 +14,7 @@ static rt_thread_t media_import_thread = RT_NULL, image_thread = RT_NULL, cfgsav
 static rt_thread_t tcp_info_thread = RT_NULL;
 static rt_thread_t tcp_video_thread = RT_NULL;
 static rt_thread_t emmc_thread = RT_NULL;
+static rt_thread_t deal_thread = RT_NULL;
 /*****************LVGL部分******************************/
 volatile uint8_t hengping = 0; // 1横屏 0竖屏
 /*****************rt-thread部分******************************/
@@ -52,6 +53,11 @@ volatile bool tcp_video_erro_flag = false; // 返回主页面标志
 volatile bool tcp_video_erro_seek_flag = false; // 返回主页面标志
 volatile uint8_t tcp_last_video_num = 0; // 返回主页面标志
 volatile uint16_t tcp_video_cnt = 0;
+
+uint8_t g_tcp_recv_buf[TCP_RECV_BUF_MAX];
+uint16_t g_tcp_recv_len = 0;
+volatile rt_sem_t g_tcp_recv_sem = RT_NULL;
+
 /*********************主页面部分******************************/
 image_num_pos_t image_num_pos[3] = {{0, 0}, {0, 0}, {0, 0}}; //记录楼层图片位置
 volatile bool init_set_img_ok = false;                      // 视频正在更新
@@ -167,7 +173,7 @@ SET_TIME_T MY_SET_TIME = {2025, 6, 30, 12, 10, 5}; // 当前时间
 #endif
 //                           选择的图片、     logo、      箭头
 #if MY_USE
-SET_IMAGE_T MY_SET_IMAGE = {IMAGE_C404_ver, LOGO_XIO, ARROW_XIO};
+SET_IMAGE_T MY_SET_IMAGE = {IMAGE_C401_ver, LOGO_XIO, ARROW_XIO};
 #else
 SET_IMAGE_T MY_SET_IMAGE = {IMAGE_C401_ver, LOGO_XIO, ARROW_XIO};
 #endif
@@ -356,7 +362,7 @@ static void init_main(void)
         MY_SET_IMAGE.image == IMAGE_C303_hor ||
         MY_SET_IMAGE.image == IMAGE_C404_hor || MY_SET_IMAGE.image == IMAGE_C404_ver
          || MY_SET_IMAGE.image == IMAGE_C201_hor
-        ||MY_SET_IMAGE.image == IMAGE_C401_ver
+        // ||MY_SET_IMAGE.image == IMAGE_C401_ver
 )
         {
             MY_SET.play_mode = PLAY_VIDEO;
@@ -511,6 +517,12 @@ static void create_thread(void)
                                    1024 * 5,                           // 线程堆栈大小
                                    18,                                   // 线程优先级
                                    20);                                 // 时间片参数
+    deal_thread = rt_thread_create("deal",                              // 线程名字
+                                   deal_thread_entry,                   // 线程入口函数
+                                   RT_NULL,                             // 线程入口参数
+                                   1024 * 6,                           // 线程堆栈大小
+                                   16,                                   // 线程优先级
+                                   20);                                 // 时间片参数
 
     if (video_thread)
         rt_thread_startup(video_thread);
@@ -532,6 +544,8 @@ static void create_thread(void)
         rt_thread_startup(tcp_info_thread);
     if (tcp_video_thread)
         rt_thread_startup(tcp_video_thread);
+    if (deal_thread)
+        rt_thread_startup(deal_thread);
 
     // if (emmc_thread)
     //     rt_thread_startup(emmc_thread);

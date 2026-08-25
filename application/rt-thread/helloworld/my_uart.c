@@ -849,10 +849,51 @@ void Cmdparsing(rt_uint8_t *buf)
     static uint8_t last_play_4 = 0;
     static uint8_t last_play_5 = 0;
 
+    static bool date_is_renew = false;
+    bool tcp_continue = false;
+    static uint8_t tcp_need_cnt = 0;
+
     if (buf == NULL)
     {
         rt_kprintf("buf is NULL\n");
         return;
+    }
+
+        // 检查数据是否更新
+    rt_uint8_t data_update = 0;
+
+    for (int i = 0; i < sizeof(pre_eledata); i++)
+    {
+        if (buf[i] != pre_eledata[i])
+        {
+            data_update = 1;
+            break;
+        }
+    }
+    if(is_tcp_connected && MY_SET_DHCP.host_state == true)
+    {
+        if(tcp_need_cnt == 1 && data_update)
+        {
+            date_is_renew = false;
+            tcp_need_cnt = 0;
+            // rt_kprintf("信号一帧,切换继续发送\n");
+        }else if((tcp_need_cnt >= 1 && tcp_need_cnt <= 3) && !data_update)
+        {
+            date_is_renew = false;
+            tcp_continue = true;
+        }
+
+        if((data_update && !date_is_renew) || tcp_continue)
+        {
+            tcp_need_cnt ++;
+            date_is_renew = true;
+            // rt_kprintf("发送帧\n");
+            rt_thread_mdelay(1);
+            tcp_send_raw(&buf[0], 7);
+        }else {
+            date_is_renew = false;
+            tcp_need_cnt = 0;
+        }
     }
 
     // 1. 解析数据1(buf[1])
@@ -932,40 +973,6 @@ void Cmdparsing(rt_uint8_t *buf)
     else
         io_state_flag[NUM_TRAP_COMFORT] = false;
 
-    // switch (elevator_data.elevator_state2)
-    // {
-    // case VIDEO_SLEEP:
-    //     io_state_flag[NUM_SLEEP] = true;
-    //     break;
-    // case VIDEO_POWER_OFF:
-    //     io_state_flag[NUM_POWER_OFF] = true;
-    //     break;
-    // case VIDEO_TRAP_COMFORT:
-    //     io_state_flag[NUM_TRAP_COMFORT] = true;
-    //     break;
-    // case VIDEO_RESET_COMFORT:
-    //     io_state_flag[NUM_RESET_COMFORT] = true;
-    //     break;
-    // case VIDEO_RESET_RESCUE_LEVEL:
-    //     io_state_flag[NUM_RESET_RESCUE_LEVEL] = true;
-    //     break;
-    // case VIDEO_RESET_END:
-    //     io_state_flag[NUM_RESET_END] = true;
-    //     break;
-    // case VIDEO_BUZZER_SIGNAL:
-    //     io_state_flag[NUM_BUZZER_SIGNAL] = true;
-    //     break;
-    // default:
-    //     io_state_flag[NUM_SLEEP] = false;
-    //     io_state_flag[NUM_POWER_OFF] = false;
-    //     io_state_flag[NUM_TRAP_COMFORT] = false;
-    //     io_state_flag[NUM_RESET_COMFORT] = false;
-    //     io_state_flag[NUM_RESET_RESCUE_LEVEL] = false;
-    //     io_state_flag[NUM_RESET_END] = false;
-    //     io_state_flag[NUM_BUZZER_SIGNAL] = false;
-    //     have_buzzer_flag = false;
-    //     break;
-    // }
     if (elevator_data.elevator_state == 4)
         MY_IO_FLAG.fire = true;
     else
@@ -1008,24 +1015,16 @@ void Cmdparsing(rt_uint8_t *buf)
         MY_IO_FLAG.full_load = false;
 #if break_check
 #else
-    // 检查数据是否更新
-    rt_uint8_t data_update = 0;
 
-    for (int i = 0; i < sizeof(pre_eledata); i++)
-    {
-        if (buf[i] != pre_eledata[i])
-        {
-            data_update = 1;
-            break;
-        }
-    }
     if (!data_update)
     {
         // rt_kprintf("数据未更新\n");
         return;
     }
-    if(is_tcp_connected && MY_SET_DHCP.host_state == true)
-        rt_thread_mdelay(140);
+
+
+    // if(is_tcp_connected && MY_SET_DHCP.host_state == true)
+    //     rt_thread_mdelay(140);
     // rt_kprintf("数据有变化\n");
     memset(pre_eledata, 0, sizeof(pre_eledata));
     memcpy(pre_eledata, buf, sizeof(pre_eledata));
@@ -2115,7 +2114,7 @@ void Cmdparsing(rt_uint8_t *buf)
 void uart_thread_entry(void *parameter)
 {
 #define SAMPLE_UART_NAME       "uart5"
-#define UART_8BYTE             8
+
 #define UART_9BYTE             9
 #define UART_FIFO_BATCH_LEN    32   // 批量读取串口FIFO最大长度
 
@@ -2216,10 +2215,7 @@ void uart_thread_entry(void *parameter)
 #else
                         if (calc_crc == recv_crc)
                         {
-                            if(is_tcp_connected)
-                            {
-                                tcp_send_raw(&valid_frame_buf[0], 7);
-                            }
+
                             Cmdparsing(valid_frame_buf);
                         }
 #endif

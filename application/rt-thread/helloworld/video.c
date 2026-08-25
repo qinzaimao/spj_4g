@@ -965,7 +965,7 @@ void user_play_video(void)
 
             last_recv_tick = rt_tick_get();
             rt_kprintf("vint\n");
-            rt_thread_mdelay(500);
+            rt_thread_mdelay(400);
         }
         if (MY_SET_IMAGE.image == IMAGE_C201_hor || MY_SET_IMAGE.image == IMAGE_C202_hor ||
             MY_SET_IMAGE.image == IMAGE_C404_hor || MY_SET_IMAGE.image == IMAGE_C404_ver)
@@ -1248,7 +1248,7 @@ void video_thread_entry(void *parameter)
                             rt_kprintf("发送 v3av\n");
                         }
                         last_recv_tick = rt_tick_get();
-                        rt_thread_mdelay(200);
+                        rt_thread_mdelay(100);
                     }
                     rt_kprintf("[多视频] 电梯音频播放完毕，开始切换\n");
                     lvgl_stop(&my_lvgl_player_ctx);

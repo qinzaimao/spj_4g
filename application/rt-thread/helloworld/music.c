@@ -1761,7 +1761,21 @@ void music_thread_entry(void *parameter)
         }
         //开始销毁音乐播放器
         user_start_renew(music_renew_flag);
-
+        static bool frist_tcp_flag = false;
+        if(is_tcp_connected && !frist_tcp_flag && MY_SET.play_mode == PLAY_IMAGE)
+        {
+            rt_kprintf("tcp连接成功,开始同步\n");
+            frist_tcp_flag = true;
+            if (is_tcp_connected && MY_SET_DHCP.host_state == true && !video_in_updating)
+            {
+                send_light(false, MY_SET.backlight);
+            }
+            if(my_page == PAGE_HOME || my_page == PAGE_HOME_HOR)
+            {
+                rt_thread_mdelay(100);
+                tcp_raw_time_flag = true;
+            }
+        }
 
 
         /* 延时，避免CPU占用过高 */

@@ -11,7 +11,6 @@
 #define VOFA_UDP_PORT        1346
 #define VOFA_MULTICAST_ADDR  "239.0.0.1"
 #define VOFA_RECV_BUF_LEN    4096
-#define UART_8BYTE           8
 #define UART_9BYTE           9
 
 static struct udp_pcb *vofa_upcb = NULL;

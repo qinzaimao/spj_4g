@@ -20,13 +20,14 @@ uint8_t get_day_cnt(uint16_t year, uint8_t month)
 /* 线程函数 */
 void rtc_thread_entry(void *parameter)
 {
+    while (!init_set_img_ok) rt_thread_mdelay(200);
     time_t now;
     rt_err_t ret = RT_EOK;
     struct tm *local_time;
     static char my_str[30] = {0};
     static time_t energy_conservation_start = 0; // 记录开始计时的RTC时间（秒）
     static time_t last_checked_time = 0;         // 上一次检查的时间
-    rt_thread_mdelay(100);
+    rt_thread_mdelay(1000);
 
     // 先获取当前RTC时间
     now = time(RT_NULL);
@@ -46,6 +47,7 @@ void rtc_thread_entry(void *parameter)
         if (ret != RT_EOK)
             rt_kprintf("set RTC time failed");
     }
+    tcp_set_time_flag = true;
     while (1)
     {
         /* 读取 RTC 时间*/
