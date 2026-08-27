@@ -164,9 +164,9 @@ err_t tcp_send_raw(uint8_t *buf, uint16_t len)
         return -1;
 
     // 加互斥锁，同一时刻只能有一个发送任务进入
-    if (rt_sem_take(tcp_send_sem, rt_tick_from_millisecond(1000)) != RT_EOK)
+    if (rt_sem_take(tcp_send_sem, rt_tick_from_millisecond(200)) != RT_EOK)
     {
-        return -2; // 拿锁超时，直接返回失败
+        return ERR_TIMEOUT;
     }
 
     err_t ret = tcp_safe_send(tcp_data_pcb, buf, len);

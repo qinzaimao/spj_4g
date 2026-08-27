@@ -862,37 +862,34 @@ void Cmdparsing(rt_uint8_t *buf)
         // 检查数据是否更新
     rt_uint8_t data_update = 0;
 
-    for (int i = 0; i < sizeof(pre_eledata); i++)
-    {
-        if (buf[i] != pre_eledata[i])
-        {
+    for (int i = 1; i <= 6; i++) {
+        if (buf[i] != pre_eledata[i - 1]) {
             data_update = 1;
             break;
         }
     }
+    // if(data_update)
+    // {
+    //     rt_kprintf("新帧:");
+    //     for(int i = 0; i < 7; i++)
+    //     {
+    //         rt_kprintf("%02x ", buf[i]);
+    //     }
+    //     rt_kprintf("\n");
+    // }
     if(is_tcp_connected && MY_SET_DHCP.host_state == true)
     {
-        if(tcp_need_cnt == 1 && data_update)
-        {
-            date_is_renew = false;
-            tcp_need_cnt = 0;
-            // rt_kprintf("信号一帧,切换继续发送\n");
-        }else if((tcp_need_cnt >= 1 && tcp_need_cnt <= 3) && !data_update)
-        {
-            date_is_renew = false;
-            tcp_continue = true;
-        }
-
-        if((data_update && !date_is_renew) || tcp_continue)
-        {
-            tcp_need_cnt ++;
-            date_is_renew = true;
-            // rt_kprintf("发送帧\n");
-            rt_thread_mdelay(1);
+        static uint8_t tcp_cnt = 0;
+        if (data_update){
+            tcp_cnt = 0;
             tcp_send_raw(&buf[0], 7);
-        }else {
-            date_is_renew = false;
-            tcp_need_cnt = 0;
+        }else
+        {
+            tcp_cnt ++;
+            if(tcp_cnt < 5)
+            {
+                tcp_send_raw(&buf[0], 7);
+            }
         }
     }
 
@@ -1018,16 +1015,10 @@ void Cmdparsing(rt_uint8_t *buf)
 
     if (!data_update)
     {
-        // rt_kprintf("数据未更新\n");
         return;
     }
 
-
-    // if(is_tcp_connected && MY_SET_DHCP.host_state == true)
-    //     rt_thread_mdelay(140);
-    // rt_kprintf("数据有变化\n");
-    memset(pre_eledata, 0, sizeof(pre_eledata));
-    memcpy(pre_eledata, buf, sizeof(pre_eledata));
+    memcpy(&pre_eledata[0], &buf[1], 6);
 #endif
     process_elevator_data();
     if(elevator_data.video_state)
@@ -1724,7 +1715,7 @@ void Cmdparsing(rt_uint8_t *buf)
                 uart_obs_cnt = 0;
             #if USE_PRI
             #endif
-            // rt_kprintf("IO_dir_arrow_value: %s\n", IO_dir_arrow_value == 0 ? "上行" : "下行");
+            rt_kprintf("箭头: %s\n", IO_dir_arrow_value == 0 ? "上行" : "下行");
             up_or_down = (IO_dir_arrow_value == 0 ? 1 : 2);
             if (IO_dir_arrow_value == 0)
                 set_gif_arrow = UP_ARROW;
@@ -2215,7 +2206,10 @@ void uart_thread_entry(void *parameter)
 #else
                         if (calc_crc == recv_crc)
                         {
-
+                            // if(is_tcp_connected && MY_SET_DHCP.host_state == true)
+                            // {
+                            //     tcp_send_raw(&valid_frame_buf[0], 7);
+                            // }
                             Cmdparsing(valid_frame_buf);
                         }
 #endif

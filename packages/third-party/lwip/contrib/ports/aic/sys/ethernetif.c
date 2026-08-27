@@ -21,7 +21,7 @@
 #include "aicmac_macaddr.h"
 
 #define NETIF_MTU                       (1500)
-#define NETIF_RX_TASK_STACK_SIZE        (1024)
+#define NETIF_RX_TASK_STACK_SIZE        (8192)
 #define NETIF_RX_TASK_PRIORITY          (TCPIP_THREAD_PRIO-1)
 
 /* Define those to better describe your network interface. */

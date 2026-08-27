@@ -1,5 +1,6 @@
 #include "deal.h"
 
+
 void deal_thread_entry(void *parameter)
 {
     g_tcp_recv_sem = rt_sem_create("tcp_recv_sem", 0, RT_IPC_FLAG_FIFO);
@@ -8,29 +9,38 @@ void deal_thread_entry(void *parameter)
         rt_kprintf("[TCP] sem create fail!\n");
     }
 
+    /* 静态解析缓冲区，放BSS段，不占线程栈，根据你的最大TCP单包调大小 */
+    #define TCP_PARSE_BUF_MAX  64
+    static uint8_t s_tcp_parse_buf[TCP_PARSE_BUF_MAX];
+
     while (1)
     {
-        // 阻塞等待TCP接收事件，没有数据这里休眠
         rt_err_t sem_ret = rt_sem_take(g_tcp_recv_sem, RT_WAITING_FOREVER);
         if (sem_ret != RT_EOK)
         {
             continue;
         }
 
+        uint16_t rlen;
         rt_enter_critical();
-        uint16_t rlen = g_tcp_recv_len;
-        uint8_t *rbuf = g_tcp_recv_buf;
-        // rt_bool_t net_ok = (set_dhcp_info.tcp_connected && set_dhcp_info.get_lwip);
-        // 读完立即清空长度，下一次接收可以覆盖
+        rlen = g_tcp_recv_len;
+        /* 拷贝全局接收buf到静态解析buf，避免lwip回调覆盖原buffer */
+        if(rlen > TCP_PARSE_BUF_MAX)
+        {
+            rlen = TCP_PARSE_BUF_MAX;
+        }
+        rt_memcpy(s_tcp_parse_buf, g_tcp_recv_buf, rlen);
         g_tcp_recv_len = 0;
         rt_exit_critical();
 
-        // 网络断开/未就绪，直接丢弃这一包
         if (rlen == 0)
         {
             continue;
         }
+        /* 后续全部解析使用 s_tcp_parse_buf，不要再用g_tcp_recv_buf指针！ */
+        uint8_t *rbuf = s_tcp_parse_buf;
 
+        // =========下面你原有全部解析逻辑不动，直接往下粘贴========
         if (MY_SET_DHCP.host_state == true)
         {
             if (rlen >= 5)
@@ -45,7 +55,6 @@ void deal_thread_entry(void *parameter)
                         rt_mutex_take(elevtor_mutex, RT_WAITING_FOREVER);
                         need_to_play_video_flag = false;
                         rt_mutex_release(elevtor_mutex);
-
                         break;
                     }
                 }
@@ -54,32 +63,27 @@ void deal_thread_entry(void *parameter)
 
         if (MY_SET_DHCP.host_state == false)
         {
-
             // ========== 第一层：6字节二进制短指令（最高优先级） ==========
             if (rlen == 7 || rlen == 14)
             {
-                // 增加首字节校验：必须第一个字节是0x00才是合法指令
                 if (rbuf[0] == 0x00)
                 {
-                    uint8_t pkg_9[9] = {0x00};
-                    // 原始有效6个字节在recv_buf[1]~rbuf[6]，拷贝到pkg9[1~6]
+                    uint8_t pkg_9[9] = {0x00};  // 9字节很小，留在栈没问题
                     memcpy(pkg_9 + 1, rbuf + 1, 6);
                     pkg_9[7] = 0x00;
                     pkg_9[8] = 0xE6;
                     Cmdparsing(pkg_9);
                     continue;
                 }
-                // 长度7但首字节不是0x00，属于杂包，不return，继续后续所有指令解析
             }
 
             // ========== 第二层：4字节视频/图片控制指令（次高频） ==========
-
             if (my_page == PAGE_HOME || my_page == PAGE_HOME_HOR)
             {
                 uint16_t offset = 0;
                 while (offset + 4 <= rlen)
                 {
-                    uint8_t cmd_buf[4];
+                    uint8_t cmd_buf[4];  //4字节栈局部，无压力
                     memcpy(cmd_buf, rbuf + offset, 4);
 
                     if (memcmp(cmd_buf, "v1mp", 4) == 0)
@@ -196,6 +200,7 @@ void deal_thread_entry(void *parameter)
                     offset++;
                 }
             }
+
             // ========== 第三层：8字节版本升级帧（0xAA 0x56） ==========
             if (rlen >= UART_8BYTE)
             {
@@ -210,7 +215,6 @@ void deal_thread_entry(void *parameter)
             }
 
             // ========== 第四层：低频文本指令（背光 + 时间，放最后） ==========
-            // 背光匹配
             if (rlen >= 7)
             {
                 uint16_t try_pos;
@@ -239,12 +243,11 @@ void deal_thread_entry(void *parameter)
                             backlight_set(MY_SET.e_con_backlight);
                             rt_kprintf("[TCP BL] 收到节能背光设置：%d\n", MY_SET.e_con_backlight);
                         }
-                        // rt_kprintf("[TCP BL] 收到背光设置：%d\n", MY_SET.backlight);
                         break;
                     }
                 }
             }
-            // 时间字符串匹配
+
             if (rlen >= 16)
             {
                 uint16_t try_pos;
@@ -258,12 +261,10 @@ void deal_thread_entry(void *parameter)
                         memcpy(date_str, p, 10);
                         memcpy(time_str, p + 11, 5);
 
-                        // rt_kprintf("[TCP TIME SET] 原始接收：%s %s\n", date_str, time_str);
                         int year, mon, day, hour, min;
                         sscanf(date_str, "%d/%d/%d", &year, &mon, &day);
                         sscanf(time_str, "%d:%d", &hour, &min);
 
-                        // rt_kprintf("[TCP TIME SET] 解析结果 年:%d 月:%d 日:%d 时:%d 分:%d\n", year, mon, day, hour, min);
                         rt_err_t ret = RT_EOK;
                         ret = set_date(year, mon, day);
                         if (ret != RT_EOK)

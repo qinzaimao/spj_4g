@@ -71,10 +71,10 @@
 #define LVGL_PCM_PATH LVGL_STORAGE_PATH"/pcm/"
 #define PCM_PATH(y) CONN(LVGL_PCM_PATH, y)
 
-#define VERSION_DATE "Ver: 1.0 (20260825)"
+#define VERSION_DATE "Ver: 1.0 (20260826)"
 
 //我用 1 ，客户 0
-#define MY_USE 1
+#define MY_USE 0
 
 #define USE_PRI 0
 #define MOUSE_DEBUG 0
@@ -112,7 +112,7 @@ extern volatile bool mouse_btn_left, mouse_btn_right, mouse_plugged, mouse_leave
 extern volatile int mouse_current_x, mouse_current_y;//鼠标移动的坐标
 extern volatile int16_t wheel_diff;          // 滚轮差异值
 /*********************网络天气部分******************************/
-#define TCP_RECV_BUF_MAX 50
+#define TCP_RECV_BUF_MAX 64
 #define UART_8BYTE           8
 extern char ip_str[20];
 extern char mask_str[20];

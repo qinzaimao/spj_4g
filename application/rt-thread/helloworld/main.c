@@ -520,7 +520,7 @@ static void create_thread(void)
     deal_thread = rt_thread_create("deal",                              // 线程名字
                                    deal_thread_entry,                   // 线程入口函数
                                    RT_NULL,                             // 线程入口参数
-                                   1024 * 6,                           // 线程堆栈大小
+                                   1024 * 40,                           // 线程堆栈大小
                                    16,                                   // 线程优先级
                                    20);                                 // 时间片参数
 
