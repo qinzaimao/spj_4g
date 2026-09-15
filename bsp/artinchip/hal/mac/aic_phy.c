@@ -7,7 +7,7 @@
 #include <aic_core.h>
 #include "aic_mac.h"
 #include "aic_phy.h"
-
+#include "lwip/dns.h"
 #include "../../../../application/rt-thread/helloworld/main.h"
 
 #define PHY_POLL_TASK_STACK_SIZE        (4096)
@@ -709,12 +709,26 @@ void aicphy_poll_thread(void *pvParameters)
 
             /* Netif set phy linkup */
             netif_set_link_up(netif);
+            // ========== 新增DNS配置 ==========
+            {
+                ip_addr_t dns_addr;
+                IP4_ADDR(&dns_addr, 223,5,5,5);
+                dns_setserver(0, &dns_addr);
+                IP4_ADDR(&dns_addr, 114,114,114,114);
+                dns_setserver(1, &dns_addr);
 
+                const ip_addr_t *dns0 = dns_getserver(0);
+                const ip_addr_t *dns1 = dns_getserver(1);
+                pr_info("[DNS] dns0:%d.%d.%d.%d, dns1:%d.%d.%d.%d\n",
+                    ip4_addr1(dns0),ip4_addr2(dns0),ip4_addr3(dns0),ip4_addr4(dns0),
+                    ip4_addr1(dns1),ip4_addr2(dns1),ip4_addr3(dns1),ip4_addr4(dns1));
+            }
         /* Phy link status change: UP -> DOWN */
         } else {
             pr_info(" Port %d link DOWN!\n", (int)port);
              get_lwip_flag = false;
              is_tcp_connected = false;
+            need_close_link= RT_TRUE;
             /* Disable MAC and DMA transmission and reception */
             aicmac_stop(port);
 

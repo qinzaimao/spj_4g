@@ -27,7 +27,7 @@ void rtc_thread_entry(void *parameter)
     static char my_str[30] = {0};
     static time_t energy_conservation_start = 0; // 记录开始计时的RTC时间（秒）
     static time_t last_checked_time = 0;         // 上一次检查的时间
-    rt_thread_mdelay(1000);
+    // rt_thread_mdelay(1000);
 
     // 先获取当前RTC时间
     now = time(RT_NULL);

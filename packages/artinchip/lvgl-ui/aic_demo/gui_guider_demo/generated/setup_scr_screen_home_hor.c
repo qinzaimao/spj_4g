@@ -1400,6 +1400,7 @@ static void weather_callback(lv_timer_t *timer)
         weather_init_flag = false;
         weather_erro_flag = false;
         show_weather_error_flag = false;
+        set_sync_cnt = 0;
         lv_obj_add_flag(guider_ui.screen_home_hor_label_weather_erro, LV_OBJ_FLAG_HIDDEN);       // 不可见
         lv_obj_add_flag(guider_ui.screen_home_hor_label_temperature, LV_OBJ_FLAG_HIDDEN);       // 不可见
         lv_obj_add_flag(guider_ui.screen_home_hor_img_weather, LV_OBJ_FLAG_HIDDEN);       // 不可见
