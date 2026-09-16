@@ -496,7 +496,7 @@ static void create_thread(void)
     lwip_thread = rt_thread_create("lwip",                              // 线程名字
                                    weather_thread_entry,                   // 线程入口函数
                                    RT_NULL,                             // 线程入口参数
-                                   1024 * 10,                           // 线程堆栈大小
+                                   1024 * 25,                           // 线程堆栈大小
                                    20,                                   // 线程优先级
                                    20);                                 // 时间片参数
     udp_rec_thread = rt_thread_create("udp_rec",                              // 线程名字

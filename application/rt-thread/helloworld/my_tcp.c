@@ -327,7 +327,7 @@ void tcp_info_thread_entry(void *parameter)
     server_heart_tick = rt_tick_get();
     bind_retry_cnt = 0;
     rt_kprintf("[TCP THREAD] TCP双板互测线程启动，初始模式:%s\n", last_host_state ? "TCP客户端(主动连另一块板)" : "TCP服务端(等待另一块板接入)");
-    rt_thread_mdelay(2000);
+    rt_thread_mdelay(3000);
 
     while (1)
     {

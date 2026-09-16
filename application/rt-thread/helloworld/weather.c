@@ -17,6 +17,7 @@ extern void lwip_test_example_main_loop(void *data);
 
 #define TIME_SERVER_CNT (sizeof(time_server_list)/sizeof(time_server_list[0]))
 #define TIME_SYNC_INTERVAL (60 * 60 * RT_TICK_PER_SECOND) /* 1小时同步一次 */
+#define WEATHER_SYNC_INTERVAL (60 * 30 * RT_TICK_PER_SECOND) /* 0.5小时同步一次 */
 
 /* 时间同步服务器配置（免费无限制，可随时换） */
 #define TIME_SYNC_HOST     "www.baidu.com"
@@ -35,6 +36,7 @@ static const time_server_t time_server_list[] = {
 };
 /* 时间同步间隔控制 */
 static rt_tick_t last_time_sync_tick = 0;
+static rt_tick_t last_weather_sync_tick = 0;
 static rt_tick_t sync_fail_cool_tick = 0;  // 失败冷却时间点
 /* 多节点时间服务器列表，HTTP HEAD 获取Date头 */
 
@@ -334,33 +336,19 @@ static bool sync_system_time_via_http(void)
 void weather_thread_entry(void *parameter)
 {
     while (!init_set_img_ok) rt_thread_mdelay(200);
-    static uint8_t time_cnt = 0;
+    static uint16_t time_cnt = 0;
     static bool get_city_flag = false;
     struct netconn *conn = NULL;
     while (1)
     {
-        /* ================================================================
-         * 【时间同步】不限制界面，只要网络就绪且到1小时间隔就执行
-         * ================================================================ */
-        if (get_lwip_flag && (my_page == PAGE_HOME || my_page == PAGE_HOME_HOR)
-            && ((rt_tick_get() - last_time_sync_tick) > TIME_SYNC_INTERVAL || !set_sync_cnt)
-            && (rt_tick_get() > sync_fail_cool_tick)) // 冷却时间没到，直接跳过
-        {
-            rt_thread_mdelay(500);
-            set_sync_cnt ++;
-            rt_kprintf("\n--- 开始时间同步 ---\n");
-            if (sync_system_time_via_http())
+        #if USE_TCP_SYNC
+            if (MY_SET_DHCP.host_state == false && is_tcp_connected)
             {
-                last_time_sync_tick = rt_tick_get();
-                sync_fail_cool_tick = 0; // 成功，清除冷却标记
+                rt_thread_mdelay(1000);
+                continue;
             }
-            else
-            {
-                // 设置冷却，SYNC_FAIL_COOL秒之后才允许再次尝试
-                sync_fail_cool_tick = rt_tick_get() + SYNC_FAIL_COOL;
-                rt_kprintf("[TIME-SYNC] 同步失败，%d秒后重试\n", SYNC_FAIL_COOL / RT_TICK_PER_SECOND);
-            }
-        }
+        #endif
+
 
         /* ================================================================
          * 【天气获取】限制C404界面（原有逻辑，去掉了内嵌的时间同步代码）
@@ -369,7 +357,9 @@ void weather_thread_entry(void *parameter)
         {
             if (get_city_flag)
             {
-                if (++time_cnt > 60 * 60)
+                // rt_kprintf("teime:%ld\n", (rt_tick_get() - last_weather_sync_tick));
+                // if (++time_cnt > 60 * 60)
+                if((rt_tick_get() - last_weather_sync_tick) > WEATHER_SYNC_INTERVAL)
                 {
                     start_set_lwip_flag = true;
                     get_city_flag = false;
@@ -380,7 +370,7 @@ void weather_thread_entry(void *parameter)
             if (start_set_lwip_flag && get_lwip_flag &&
                 (my_page == PAGE_HOME || my_page == PAGE_HOME_HOR))
             {
-                rt_thread_mdelay(3000);
+                rt_thread_mdelay(500);
                 time_cnt = 0;
                 start_set_lwip_flag = false;
 
@@ -446,6 +436,7 @@ void weather_thread_entry(void *parameter)
                                    ip4_addr1(&server_ip), ip4_addr2(&server_ip),
                                    ip4_addr3(&server_ip), ip4_addr4(&server_ip), server_port, err);
                         rt_thread_mdelay(RETRY_DELAY_MS);
+                        start_set_lwip_flag = true;
                         break;
                     }
                     weather_erro_flag = false;
@@ -608,12 +599,17 @@ void weather_thread_entry(void *parameter)
                     {
                         rt_kprintf("警告：未获取到有效温度数据\n");
                     }
-
+                    last_weather_sync_tick = rt_tick_get();
                     if (weather_json && cJSON_IsString(weather_json))
                     {
                         int weather_code = atoi(weather_json->valuestring);
                         rt_kprintf("天气代码: %d\n", weather_code);
-
+                        char tcp_temp_str[16] = {0};
+                        int len = snprintf(tcp_temp_str, sizeof(tcp_temp_str), "we:%d,%d", my_weather.temperature, weather_code);
+                        if(len > 0 && len < sizeof(tcp_temp_str))
+                        {
+                            tcp_send_raw(tcp_temp_str, len);
+                        }
                         const char *weather_str[] = {
                             "晴", "多云", "阴", "阵雨", "雷阵雨", "雷阵雨伴有冰雹",
                             "雨夹雪", "小雨", "中雨", "大雨", "暴雨", "大暴雨", "特大暴雨",
@@ -672,6 +668,28 @@ void weather_thread_entry(void *parameter)
             }
         }
 
+        /* ================================================================
+         * 【时间同步】不限制界面，只要网络就绪且到1小时间隔就执行
+         * ================================================================ */
+        if (get_lwip_flag && (my_page == PAGE_HOME || my_page == PAGE_HOME_HOR)
+            && ((rt_tick_get() - last_time_sync_tick) > TIME_SYNC_INTERVAL || !set_sync_cnt)
+            && (rt_tick_get() > sync_fail_cool_tick)) // 冷却时间没到，直接跳过
+        {
+            rt_thread_mdelay(500);
+            set_sync_cnt ++;
+            rt_kprintf("\n--- 开始时间同步 ---\n");
+            if (sync_system_time_via_http())
+            {
+                last_time_sync_tick = rt_tick_get();
+                sync_fail_cool_tick = 0; // 成功，清除冷却标记
+            }
+            else
+            {
+                // 设置冷却，SYNC_FAIL_COOL秒之后才允许再次尝试
+                sync_fail_cool_tick = rt_tick_get() + SYNC_FAIL_COOL;
+                rt_kprintf("[TIME-SYNC] 同步失败，%d秒后重试\n", SYNC_FAIL_COOL / RT_TICK_PER_SECOND);
+            }
+        }
         rt_thread_mdelay(500);
     }
 }

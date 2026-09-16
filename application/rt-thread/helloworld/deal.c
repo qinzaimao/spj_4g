@@ -214,6 +214,71 @@ void deal_thread_entry(void *parameter)
                 }
             }
 
+
+            // ========== 新增：天气指令解析 we:temp,code ==========
+            if (rlen >= 6)
+            {
+                uint16_t try_pos;
+                for (try_pos = 0; try_pos <= 10 && try_pos <= rlen - 6; try_pos++)
+                {
+                    uint8_t *p = rbuf + try_pos;
+                    if (memcmp(p, "we:", 3) == 0)
+                    {
+                        // 找到 we: 开头，解析后面两个整数，逗号分隔
+                        int temp_val = 0;
+                        int code_val = 0;
+                        int sign = 1;
+                        uint16_t idx = 3;
+                        // 解析温度（支持负数）
+                        if(p[idx] == '-')
+                        {
+                            sign = -1;
+                            idx++;
+                        }
+                        for (; idx < rlen - try_pos; idx++)
+                        {
+                            if (p[idx] >= '0' && p[idx] <= '9')
+                            {
+                                temp_val = temp_val * 10 + (p[idx] - '0');
+                            }
+                            else if(p[idx] == ',')
+                            {
+                                idx++;
+                                break;
+                            }
+                            else
+                            {
+                                // 非法字符，直接退出
+                                idx = rlen;
+                                break;
+                            }
+                        }
+                        temp_val *= sign;
+                        // 解析 weather_code
+                        for (; idx < rlen - try_pos; idx++)
+                        {
+                            if (p[idx] >= '0' && p[idx] <= '9')
+                            {
+                                code_val = code_val * 10 + (p[idx] - '0');
+                            }
+                            else
+                            {
+                                break;
+                            }
+                        }
+                        // 范围校验 weather_code 1~20
+                        my_weather.temperature = temp_val;
+                        my_weather.weather = code_val;
+                        change_weather_flag = true;
+                        geted_weather_flag = true;
+                        rt_kprintf("[TCP WEATHER] temp:%d, code:%d\n", my_weather.temperature, my_weather.weather);
+
+                        break;
+                    }
+                }
+            }
+
+
             // ========== 第四层：低频文本指令（背光 + 时间，放最后） ==========
             if (rlen >= 7)
             {
@@ -264,7 +329,7 @@ void deal_thread_entry(void *parameter)
                         int year, mon, day, hour, min;
                         sscanf(date_str, "%d/%d/%d", &year, &mon, &day);
                         sscanf(time_str, "%d:%d", &hour, &min);
-
+                        // rt_kprintf("[TCP TIME] 收到时间设置：%04d/%02d/%02d %02d:%02d\n", year, mon, day, hour, min);
                         rt_err_t ret = RT_EOK;
                         ret = set_date(year, mon, day);
                         if (ret != RT_EOK)

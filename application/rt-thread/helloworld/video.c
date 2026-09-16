@@ -1405,6 +1405,14 @@ void video_thread_entry(void *parameter)
             {
                 send_light(false, MY_SET.backlight);
             }
+            if(my_weather.weather != 0 || my_weather.temperature != 0)
+            {
+                rt_thread_mdelay(100);
+                char tcp_temp_str[16] = {0};
+                int len = snprintf(tcp_temp_str, sizeof(tcp_temp_str), "we:%d,%d", my_weather.temperature, my_weather.weather);
+                tcp_send_raw(tcp_temp_str, len);
+            }
+
             if(MY_SET.play_mode == PLAY_VIDEO && (my_page == PAGE_HOME || my_page == PAGE_HOME_HOR))
             {
                 rt_thread_mdelay(100);

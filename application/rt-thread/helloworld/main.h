@@ -71,7 +71,7 @@
 #define LVGL_PCM_PATH LVGL_STORAGE_PATH"/pcm/"
 #define PCM_PATH(y) CONN(LVGL_PCM_PATH, y)
 
-#define VERSION_DATE "Ver: 1.1 (20260915)"
+#define VERSION_DATE "Ver: 1.1 (20260916)"
 
 //我用 1 ，客户 0
 #define MY_USE 0
@@ -166,6 +166,7 @@ extern volatile uint8_t arrow_num, set_gif_arrow;
 typedef struct {
     int temperature;  //温度
     uint16_t weather;     //天气
+    uint16_t tcp_weather_cnt;     //天气
 }weather_t;
 typedef struct {
     uint8_t arr;  //温度

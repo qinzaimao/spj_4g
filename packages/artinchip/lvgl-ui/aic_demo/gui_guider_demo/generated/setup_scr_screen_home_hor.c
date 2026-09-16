@@ -1379,6 +1379,8 @@ static void weather_callback(lv_timer_t *timer)
     if(weather_erro_flag && !show_weather_error_flag)
     {
         show_weather_error_flag = true;
+        lv_obj_add_flag(guider_ui.screen_home_hor_label_temperature, LV_OBJ_FLAG_HIDDEN);       // 不可见
+        lv_obj_add_flag(guider_ui.screen_home_hor_img_weather, LV_OBJ_FLAG_HIDDEN);       // 不可见
         lv_obj_clear_flag(guider_ui.screen_home_hor_label_weather_erro, LV_OBJ_FLAG_HIDDEN);       // 可见
     }else if(show_weather_error_flag && !weather_erro_flag){
         show_weather_error_flag = false;
