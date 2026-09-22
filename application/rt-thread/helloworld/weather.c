@@ -525,6 +525,7 @@ void weather_thread_entry(void *parameter)
                         else if (err != ERR_WOULDBLOCK)
                         {
                             rt_kprintf("接收响应错误，错误码: %d\n", err);
+                            start_set_lwip_flag = true;
                             break;
                         }
                         rt_thread_mdelay(10);
@@ -545,6 +546,7 @@ void weather_thread_entry(void *parameter)
                     if (header_separator == NULL)
                     {
                         rt_kprintf("解析失败：未找到HTTP头分隔符（\\r\\n\\r\\n）\n");
+                        start_set_lwip_flag = true;
                         break;
                     }
 
@@ -556,6 +558,7 @@ void weather_thread_entry(void *parameter)
                     if (*response_body == '\0')
                     {
                         rt_kprintf("严重错误：处理后的JSON响应体为空\n");
+                        start_set_lwip_flag = true;
                         break;
                     }
                     // rt_kprintf("待解析的JSON响应体:\n%s\n", response_body);
@@ -566,6 +569,7 @@ void weather_thread_entry(void *parameter)
                         rt_kprintf("JSON解析失败！\n");
                         const char *err_ptr = cJSON_GetErrorPtr();
                         if (err_ptr) rt_kprintf("错误位置: %s\n", err_ptr);
+                        start_set_lwip_flag = true;
                         break;
                     }
 
@@ -576,6 +580,7 @@ void weather_thread_entry(void *parameter)
                         rt_kprintf("接口请求失败！code=%d, message=%s\n",
                                    code_json ? code_json->valueint : -1,
                                    (msg_json && cJSON_IsString(msg_json)) ? msg_json->valuestring : "未知错误");
+                        start_set_lwip_flag = true;
                         break;
                     }
                     rt_kprintf("请求成功！code=200\n");
@@ -584,6 +589,7 @@ void weather_thread_entry(void *parameter)
                     if (data_json == NULL || !cJSON_IsObject(data_json))
                     {
                         rt_kprintf("解析失败：未找到 'data' 字段\n");
+                        start_set_lwip_flag = true;
                         break;
                     }
 

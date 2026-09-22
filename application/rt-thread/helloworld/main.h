@@ -71,7 +71,7 @@
 #define LVGL_PCM_PATH LVGL_STORAGE_PATH"/pcm/"
 #define PCM_PATH(y) CONN(LVGL_PCM_PATH, y)
 
-#define VERSION_DATE "Ver: 1.1 (20260916)"
+#define VERSION_DATE "Ver: 1.0 (20260922)"
 
 //我用 1 ，客户 0
 #define MY_USE 0

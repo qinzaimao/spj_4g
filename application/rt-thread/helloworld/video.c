@@ -965,7 +965,7 @@ void user_play_video(void)
 
             last_recv_tick = rt_tick_get();
             rt_kprintf("vint\n");
-            rt_thread_mdelay(400);
+            rt_thread_mdelay(100);
         }
         if (MY_SET_IMAGE.image == IMAGE_C201_hor || MY_SET_IMAGE.image == IMAGE_C202_hor ||
             MY_SET_IMAGE.image == IMAGE_C404_hor || MY_SET_IMAGE.image == IMAGE_C404_ver)

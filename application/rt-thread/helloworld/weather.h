@@ -11,7 +11,7 @@
 // 定义一个宏来控制是否打印完整的响应内容，方便调试
 #define DEBUG_PRINT_FULL_RESPONSE 0
 
-#define MAX_RESPONSE_SIZE 1024 * 32 // 增大缓冲区，确保能容纳完整响应
+#define MAX_RESPONSE_SIZE 1024 * 8 // 增大缓冲区，确保能容纳完整响应
 
 
 
