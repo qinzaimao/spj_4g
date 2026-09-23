@@ -191,11 +191,17 @@ const struct dfs_mount_tbl mount_table[] = {
 #ifdef LPKG_RAMDISK_TYPE_INITDATA
     {"ramdisk0", "/ram", "elm", 0, 0, 0},
 #endif
+#ifndef AIC_AB_SYSTEM_INTERFACE
 #ifdef AIC_USING_SDMC0
-// #ifndef AIC_AB_SYSTEM_INTERFACE
+    {"sd0p5", "/rodata", "elm", 1, 0, 0},
+    {"sd0p7", "/data",   "elm", 0, 0, 0},
+    /* Fallback in case old partition table without rodata_r is used */
+    {"sd0p5", "/rodata", "elm", 1, 0, 0},
+    {"sd0p6", "/data",   "elm", 0, 0, 0},
+    /* Fallback in case old partition table without os_r is used */
     {"sd0p4", "/rodata", "elm", 1, 0, 0},
     {"sd0p5", "/data",   "elm", 0, 0, 0},
-// #endif
+#endif
 #endif
 #ifdef AIC_USING_SDMC1
     {"sd1", "/sdcard", "elm", 0, 0, 0},

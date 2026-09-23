@@ -10,11 +10,13 @@ static void wdt_feed_callback(void *parameter)
     // rt_kprintf("[WDT] Feed at tick %d\n", rt_tick_get());
 }
 
+#include <aic_reboot_reason.h>
+
 /* 看门狗中断回调 */
 static irqreturn_t aic_wdt_irq(int irq, void *arg)
 {
-    rt_kprintf("[WDT] Pretimeout IRQ! Feeding and trying to recover...\n");
-    rt_device_control(wdt_dev, RT_DEVICE_CTRL_WDT_KEEPALIVE, NULL);
+    rt_kprintf("[WDT] Pretimeout IRQ! System might be hung! Setting SW_LOCKUP reason...\n");
+    aic_set_reboot_reason(REBOOT_REASON_SW_LOCKUP);
     return IRQ_HANDLED;
 }
 
@@ -38,8 +40,16 @@ void wdt_immediate_reset(void)
     // 检查看门狗设备是否初始化
     if (wdt_dev == RT_NULL)
     {
-        rt_kprintf("[WDT] Device not initialized, cannot reset!\n");
-        return;
+        wdt_dev = rt_device_find(WDT_DEVICE_NAME);
+        if (wdt_dev)
+            rt_device_init(wdt_dev);
+    }
+
+    if (wdt_dev == RT_NULL)
+    {
+        rt_kprintf("[WDT] Device not available, fallback to cpu reset!\n");
+        rt_hw_cpu_reset();
+        while (1) {}
     }
 
     rt_kprintf("[WDT] Triggering immediate reset...\n");
@@ -61,6 +71,7 @@ void wdt_immediate_reset(void)
     // 4. 设置看门狗超时为最小值（通常为1ms），使其立即超时
     rt_uint32_t min_timeout = 0; // 1ms超时
     rt_device_control(wdt_dev, RT_DEVICE_CTRL_WDT_SET_TIMEOUT, &min_timeout);
+    rt_device_control(wdt_dev, RT_DEVICE_CTRL_WDT_START, RT_NULL);
 
     // 5. 不再喂狗，等待看门狗立即复位
     while (1)

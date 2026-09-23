@@ -6,10 +6,10 @@
             "env":        { "size": "256k" },
             "env_r":      { "size": "256k" },
             "os":         { "size": "100m" },
-            // "os_r":         { "size": "90m" },
-            "rodata":     { "size": "1800m" },
-            // "rodata_r":     { "size": "1100m" },
-            "data":       { "size": "5000m" },
+            "os_r":       { "size": "100m" },
+            "rodata":     { "size": "1100m" },
+            "rodata_r":   { "size": "1100m" },
+            "data":       { "size": "4800m" },
         },
     },
     "image": {
@@ -55,10 +55,20 @@
                 "attr": ["block", "required"],
                 "part": ["os"]
             },
+            "os_r": {
+                "file": "d21x_os.itb",
+                "attr": ["block", "optional"],
+                "part": ["os_r"]
+            },
             "rodata": {
                 "file": "rodata.fatfs",
                 "attr": ["block", "optional"],
                 "part": ["rodata"]
+            },
+            "rodata_r": {
+                "file": "rodata.fatfs",
+                "attr": ["block", "optional"],
+                "part": ["rodata_r"]
             },
             "data": {
                 "file": "data.fatfs",

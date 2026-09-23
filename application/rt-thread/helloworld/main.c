@@ -4,6 +4,7 @@
 */
 
 #include "main.h"
+#include "app_ab_recovery.h"
 
 rt_thread_t video_thread = RT_NULL;
 rt_thread_t udp_rec_thread = RT_NULL;
@@ -322,12 +323,16 @@ int main(void)
     init_main();
     create_thread();
     create_mutex();
+    app_ab_boot_success();
 
     return 0;
 }
 
 static void init_main(void)
 {
+    /* 初始化崩溃自动回退与保护钩子 */
+    app_ab_recovery_init();
+
 #ifdef ULOG_USING_FILTER
     ulog_global_filter_lvl_set(ULOG_OUTPUT_LVL);
 #endif

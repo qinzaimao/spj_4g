@@ -14,6 +14,8 @@
 #include <string.h>
 #include <absystem.h>
 #include <env.h>
+#include <aic_reboot_reason.h>
+#include <hal_wri.h>
 
 #define APPLICATION_PART           "os"
 #define APPLICATION_PART_REDUNDAND "os_r"
@@ -43,6 +45,20 @@ int aic_ota_version_fallback(void)
         return ret;
     }
 
+    /* Version fallback for rodata */
+    next = fw_getenv("rodataAB_next");
+    if (next) {
+        if (strncmp(next, "A", 2) == 0) {
+            ret = fw_env_write("rodataAB_next", "B");
+        } else if (strncmp(next, "B", 2) == 0) {
+            ret = fw_env_write("rodataAB_next", "A");
+        }
+        if (ret) {
+            pr_err("rodataAB_next write fail\n");
+            return ret;
+        }
+    }
+
     ret = fw_env_write("bootcount", "0");
     if (ret) {
         pr_err("Env write fail\n");
@@ -66,11 +82,54 @@ int aic_ota_check(void)
     int limit = 0;
     char string[32] = { 0 };
     int ret = 0;
+    enum aic_reboot_reason r = REBOOT_REASON_COLD;
+#ifdef AIC_WRI_DRV
+    enum aic_warm_reset_type hw = aic_wr_type_get();
+    r = aic_get_reboot_reason();
+#endif
 
     if (fw_env_open()) {
         pr_err("Open env failed\n");
         return -1;
     }
+
+#ifdef AIC_WRI_DRV
+    /* 1. Direct Panic / Software Lockup Detection */
+    if (r == REBOOT_REASON_PANIC || r == REBOOT_REASON_SW_LOCKUP || r == REBOOT_REASON_HW_LOCKUP) {
+        pr_warn("\n[ABSYSTEM] Last boot crashed (reboot reason: %d)! Auto-fallback to backup partition...\n", r);
+        aic_clr_reboot_reason();
+        ret = aic_ota_version_fallback();
+        if (ret) {
+            pr_err("Version fallback failed!\n");
+        }
+        fw_env_flush();
+        goto aic_set_upgrade_status_err;
+    }
+
+    /* 2. Hardware Watchdog Reset without clean reboot command */
+    if (wri_ops.is_wdt_reset(hw) && r != REBOOT_REASON_CMD_REBOOT) {
+        str = fw_getenv("bootlimit");
+        limit = str ? strtol(str, NULL, 10) : 2;
+        if (limit <= 0)
+            limit = 2;
+
+        str = fw_getenv("bootcount");
+        count = str ? strtol(str, NULL, 10) : 0;
+        count++;
+
+        pr_warn("\n[ABSYSTEM] Watchdog reset detected! abnormal bootcount = %d, limit = %d\n", count, limit);
+        if (count >= limit) {
+            pr_warn("[ABSYSTEM] Watchdog reset limit reached, auto-fallback to backup partition!\n");
+            ret = aic_ota_version_fallback();
+        } else {
+            str = itoa(count, string, 10);
+            ret = fw_env_write("bootcount", str);
+        }
+        aic_clr_reboot_reason();
+        fw_env_flush();
+        goto aic_set_upgrade_status_err;
+    }
+#endif
 
     status = fw_getenv("upgrade_available");
 #ifdef AIC_ENV_DEBUG
@@ -129,6 +188,8 @@ int aic_get_os_to_startup(char *target_os)
         return -1;
     }
 
+    memset(target_os, 0, 32);
+
     next = fw_getenv("osAB_next");
     now = fw_getenv("osAB_now");
 #ifdef AIC_ENV_DEBUG
@@ -136,12 +197,11 @@ int aic_get_os_to_startup(char *target_os)
     printf("osAB_now = %s\n", now);
 #endif
     if (strncmp(next, "A", 2) == 0) {
-        memcpy(target_os, APPLICATION_PART, strlen(APPLICATION_PART));
+        strcpy(target_os, APPLICATION_PART);
         if (strncmp(next, now, 2) != 0)
             ret = fw_env_write("osAB_now", "A");
     } else if (strncmp(next, "B", 2) == 0) {
-        memcpy(target_os, APPLICATION_PART_REDUNDAND,
-               strlen(APPLICATION_PART_REDUNDAND));
+        strcpy(target_os, APPLICATION_PART_REDUNDAND);
         if (strncmp(next, now, 2) != 0)
             ret = fw_env_write("osAB_now", "B");
     } else {
