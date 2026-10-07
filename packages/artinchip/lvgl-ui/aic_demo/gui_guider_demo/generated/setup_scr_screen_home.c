@@ -966,7 +966,11 @@ static void update_callback(lv_timer_t *timer)
     {
         lv_obj_set_style_text_font(guider_ui.screen_home_label_update, &lv_font_Dengb_50, LV_PART_MAIN | LV_STATE_DEFAULT);
         udisk_update_state = 0;
-        lv_label_set_text(guider_ui.screen_home_label_update, "ALL OVER 4G");
+        #if USE_8G
+            lv_label_set_text(guider_ui.screen_home_label_update, "ALL OVER 4G");
+        #else
+            lv_label_set_text(guider_ui.screen_home_label_update, "ALL OVER 2G");
+        #endif
     }else if (udisk_update_state == VIDEO_UPDATE_FLASH_ERROR)
     {
         lv_obj_set_style_text_font(guider_ui.screen_home_label_update, &lv_font_Dengb_50, LV_PART_MAIN | LV_STATE_DEFAULT);

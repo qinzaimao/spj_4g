@@ -71,12 +71,15 @@
 #define LVGL_PCM_PATH LVGL_STORAGE_PATH"/pcm/"
 #define PCM_PATH(y) CONN(LVGL_PCM_PATH, y)
 
-#define VERSION_DATE "Ver: 1.0 (20260922)"
+#define VERSION_DATE "Ver: 1.0 (20261007)"
 
 //我用 1 ，客户 0
 #define MY_USE 0
 //使用双屏
 #define USE_TCP_SYNC 1
+//4G 0 ，  8G 1
+#define USE_8G 0
+
 #define USE_PRI 0
 #define MOUSE_DEBUG 0
 

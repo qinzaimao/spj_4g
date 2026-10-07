@@ -503,13 +503,8 @@ static void create_thread(void)
                                    RT_NULL,                             // 线程入口参数
                                    1024 * 25,                           // 线程堆栈大小
                                    20,                                   // 线程优先级
-                                   20);                                 // 时间片参数
-    udp_rec_thread = rt_thread_create("udp_rec",                              // 线程名字
-                                   udp_rec_thread_entry,                   // 线程入口函数
-                                   RT_NULL,                             // 线程入口参数
-                                   1024 * 10,                           // 线程堆栈大小
-                                   20,                                   // 线程优先级
-                                   20);                                 // 时间片参数
+                                   20);                                 // 时间片参数                             // 时间片参数
+    #if USE_TCP_SYNC
     tcp_info_thread = rt_thread_create("tcp_info",                              // 线程名字
                                    tcp_info_thread_entry,                   // 线程入口函数
                                    RT_NULL,                             // 线程入口参数
@@ -522,18 +517,26 @@ static void create_thread(void)
                                    1024 * 5,                           // 线程堆栈大小
                                    18,                                   // 线程优先级
                                    20);                                 // 时间片参数
-    emmc_thread = rt_thread_create("emmc",                              // 线程名字
-                                   emmc_thread_entry,                   // 线程入口函数
-                                   RT_NULL,                             // 线程入口参数
-                                   1024 * 5,                           // 线程堆栈大小
-                                   18,                                   // 线程优先级
-                                   20);                                 // 时间片参数
     deal_thread = rt_thread_create("deal",                              // 线程名字
                                    deal_thread_entry,                   // 线程入口函数
                                    RT_NULL,                             // 线程入口参数
                                    1024 * 40,                           // 线程堆栈大小
                                    16,                                   // 线程优先级
                                    20);                                 // 时间片参数
+    #endif
+    // udp_rec_thread = rt_thread_create("udp_rec",                              // 线程名字
+    //                                udp_rec_thread_entry,                   // 线程入口函数
+    //                                RT_NULL,                             // 线程入口参数
+    //                                1024 * 10,                           // 线程堆栈大小
+    //                                20,                                   // 线程优先级
+    //                                20);
+    // emmc_thread = rt_thread_create("emmc",                              // 线程名字
+    //                                emmc_thread_entry,                   // 线程入口函数
+    //                                RT_NULL,                             // 线程入口参数
+    //                                1024 * 5,                           // 线程堆栈大小
+    //                                18,                                   // 线程优先级
+    //                                20);                                 // 时间片参数
+
 
     if (video_thread)
         rt_thread_startup(video_thread);
@@ -551,6 +554,8 @@ static void create_thread(void)
         rt_thread_startup(mouse_image_thread);
     if (elevator_play_thread)
         rt_thread_startup(elevator_play_thread);
+    if (lwip_thread)
+        rt_thread_startup(lwip_thread);
     #if USE_TCP_SYNC
         if (tcp_info_thread)
             rt_thread_startup(tcp_info_thread);
@@ -559,9 +564,6 @@ static void create_thread(void)
         if (deal_thread)
             rt_thread_startup(deal_thread);
     #endif
-    // #else
-    if (lwip_thread)
-        rt_thread_startup(lwip_thread);
 }
 /*创建互斥锁*/
 static void create_mutex(void)

@@ -1208,12 +1208,20 @@ void media_import_thread_entry(void *parameter)
                         }
                     }
                 }
-                const long long MAX_TOTAL_SIZE = 4LL * 1024 * 1024 * 1024; // 2GB
+                #if USE_8G
+                    const long long MAX_TOTAL_SIZE = 4LL * 1024 * 1024 * 1024; // 4GB
+                #else
+                    const long long MAX_TOTAL_SIZE = 2LL * 1024 * 1024 * 1024; // 2GB
+                #endif
                 if (all_size + usb_filelen > MAX_TOTAL_SIZE)
                 {
                     udisk_update_state = VIDEO_UPDATE_ALL_ERROR;
                     rt_kprintf("\n/******************/\n");
-                    rt_kprintf("ERROR:视频总量超过4G\n");
+                    #if USE_8G
+                        rt_kprintf("ERROR:视频总量超过4G\n");
+                    #else
+                        rt_kprintf("ERROR:视频总量超过2G\n");
+                    #endif
                     rt_kprintf("/******************/\n");
                     rt_thread_mdelay(1500);
                     safe_file_close(&usb_file);

@@ -118,7 +118,7 @@ static void tcp_common_err_cb(void *arg, err_t err)
     {
         return;
     }
-    rt_kprintf("[TCP ERROR] 链路异常断开！err=%d\n", err);
+    // rt_kprintf("[TCP ERROR] 链路异常断开！err=%d\n", err);
     tcp_data_pcb = NULL;
     is_tcp_connected = RT_FALSE;
     is_connecting = RT_FALSE;
@@ -434,7 +434,7 @@ void tcp_info_thread_entry(void *parameter)
             err = tcp_connect(tcp_data_pcb, &target_ip, TARGET_TCP_PORT, tcp_client_connected_cb);
             if (err != ERR_OK)
             {
-                rt_kprintf("[TCP CLIENT] tcp_connect fail err=%d\n", err);
+                // rt_kprintf("[TCP CLIENT] tcp_connect fail err=%d\n", err);
                 tcp_abort(tcp_data_pcb);
                 tcp_data_pcb = NULL;
                 UNLOCK_TCPIP_CORE();

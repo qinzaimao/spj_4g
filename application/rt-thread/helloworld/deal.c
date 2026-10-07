@@ -153,14 +153,14 @@ void deal_thread_entry(void *parameter)
                         if (tcp_return_home_flag)
                         {
                             tcp_return_home_flag = false;
-                            create_player_flag = true;
+                            // create_player_flag = true;
 
-                            if (MY_SET_IMAGE.image == IMAGE_C201_hor || MY_SET_IMAGE.image == IMAGE_C202_hor ||
-                                MY_SET_IMAGE.image == IMAGE_C404_hor || MY_SET_IMAGE.image == IMAGE_C404_ver)
-                                video_init(true, 1);
-                            else
-                                video_init(true, 0);
-                            rt_kprintf("从机设置退出等待主机信号\n");
+                            // if (MY_SET_IMAGE.image == IMAGE_C201_hor || MY_SET_IMAGE.image == IMAGE_C202_hor ||
+                            //     MY_SET_IMAGE.image == IMAGE_C404_hor || MY_SET_IMAGE.image == IMAGE_C404_ver)
+                            //     video_init(true, 1);
+                            // else
+                            //     video_init(true, 0);
+                            rt_kprintf("deal 从机设置退出等待主机信号\n");
                         }
                         if (my_lvgl_player_ctx.player != NULL)
                             seek_to_start_play_video();

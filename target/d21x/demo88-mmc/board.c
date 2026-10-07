@@ -195,12 +195,6 @@ const struct dfs_mount_tbl mount_table[] = {
 #ifdef AIC_USING_SDMC0
     {"sd0p5", "/rodata", "elm", 1, 0, 0},
     {"sd0p7", "/data",   "elm", 0, 0, 0},
-    /* Fallback in case old partition table without rodata_r is used */
-    {"sd0p5", "/rodata", "elm", 1, 0, 0},
-    {"sd0p6", "/data",   "elm", 0, 0, 0},
-    /* Fallback in case old partition table without os_r is used */
-    {"sd0p4", "/rodata", "elm", 1, 0, 0},
-    {"sd0p5", "/data",   "elm", 0, 0, 0},
 #endif
 #endif
 #ifdef AIC_USING_SDMC1
